@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/update/:target/:version",
+      "destination": "/api/update?target=:target&version=:version"
+    },
+    {
+      "source": "/download",
+      "destination": "/api/download"
+    },
+    {
+      "source": "/latest.json",
+      "destination": "/api/latest"
+    }
+  ]
+}

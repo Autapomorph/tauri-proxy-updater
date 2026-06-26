@@ -1,0 +1,19 @@
+{
+  "name": "tauri-proxy-updater",
+  "version": "1.0.0",
+  "description": "An auto-updater proxy server for Tauri applications, designed to work with a private repository.",
+  "author": "Autapomorph",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@vercel/node": "^5.9.9",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3"
+  }
+}
