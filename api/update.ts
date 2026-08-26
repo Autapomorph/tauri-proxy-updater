@@ -126,40 +126,92 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 function findReleaseAssets(assets: GitHubAsset[], target: string): MatchedAssets {
   const targetLower = target.toLowerCase();
+  const isArm =
+    targetLower.includes('aarch64') || targetLower.includes('arm64') || targetLower.includes('arm');
+  const isX64 =
+    targetLower.includes('x86_64') || targetLower.includes('x64') || targetLower.includes('amd64');
+  const isX86 =
+    targetLower.includes('i686') || targetLower.includes('x86') || targetLower.includes('32');
+
+  const matchesArch = (name: string): boolean => {
+    const nameLower = name.toLowerCase();
+
+    if (isArm) {
+      return (
+        nameLower.includes('arm64') || nameLower.includes('aarch64') || nameLower.includes('arm')
+      );
+    }
+
+    if (isX64) {
+      return (
+        (nameLower.includes('x64') ||
+          nameLower.includes('x86_64') ||
+          nameLower.includes('amd64')) &&
+        !nameLower.includes('arm64') &&
+        !nameLower.includes('aarch64')
+      );
+    }
+
+    if (isX86) {
+      return (
+        (nameLower.includes('x86') || nameLower.includes('i686') || nameLower.includes('32')) &&
+        !nameLower.includes('x86_64') &&
+        !nameLower.includes('arm64')
+      );
+    }
+
+    return true;
+  };
 
   let binaryAsset: GitHubAsset | undefined;
 
   if (targetLower.includes('linux')) {
-    binaryAsset =
-      assets.find(a => a.name.endsWith('.AppImage.tar.gz')) ||
-      assets.find(a => a.name.endsWith('.tar.gz') && !a.name.endsWith('.sig'));
+    const linuxAssets = assets.filter(
+      a =>
+        (a.name.endsWith('.AppImage.tar.gz') ||
+          a.name.endsWith('.tar.gz') ||
+          a.name.endsWith('.AppImage') ||
+          a.name.endsWith('.deb')) &&
+        !a.name.endsWith('.sig'),
+    );
+
+    binaryAsset = linuxAssets.find(a => matchesArch(a.name)) || linuxAssets[0];
   } else if (targetLower.includes('windows') || targetLower.includes('win')) {
-    binaryAsset = assets.find(a => a.name.endsWith('.exe'));
+    const winAssets = assets.filter(
+      a =>
+        (a.name.endsWith('.exe') || a.name.endsWith('.msi') || a.name.endsWith('.zip')) &&
+        !a.name.endsWith('.sig'),
+    );
+
+    binaryAsset = winAssets.find(a => matchesArch(a.name)) || winAssets[0];
   } else if (targetLower.includes('darwin') || targetLower.includes('mac')) {
-    binaryAsset =
-      assets.find(a => a.name.endsWith('.app.tar.gz')) ||
-      assets.find(a => a.name.endsWith('.gz') && !a.name.endsWith('.sig'));
+    const macAssets = assets.filter(
+      a =>
+        (a.name.endsWith('.app.tar.gz') ||
+          a.name.endsWith('.dmg') ||
+          a.name.endsWith('.tar.gz') ||
+          a.name.endsWith('.gz')) &&
+        !a.name.endsWith('.sig'),
+    );
+
+    binaryAsset = macAssets.find(a => matchesArch(a.name)) || macAssets[0];
   } else {
-    binaryAsset =
-      assets.find(a => a.name.endsWith('.exe')) ||
-      assets.find(a => a.name.endsWith('.AppImage.tar.gz'));
+    const allCandidates = assets.filter(
+      a =>
+        (a.name.endsWith('.exe') ||
+          a.name.endsWith('.AppImage.tar.gz') ||
+          a.name.endsWith('.app.tar.gz')) &&
+        !a.name.endsWith('.sig'),
+    );
+
+    binaryAsset = allCandidates.find(a => matchesArch(a.name)) || allCandidates[0];
   }
 
   if (!binaryAsset) {
     return { binaryAsset: null, sigAsset: null };
   }
 
-  let sigAsset = assets.find(a => a.name === `${binaryAsset.name}.sig`);
+  const sigAsset = assets.find(a => a.name === `${binaryAsset.name}.sig`) || null;
 
-  if (!sigAsset) {
-    if (targetLower.includes('linux')) {
-      sigAsset = assets.find(a => a.name.endsWith('.AppImage.tar.gz.sig'));
-    } else if (targetLower.includes('windows') || targetLower.includes('win')) {
-      sigAsset = assets.find(a => a.name.endsWith('.exe.sig'));
-    } else {
-      sigAsset = assets.find(a => a.name.endsWith('.sig'));
-    }
-  }
-
-  return { binaryAsset, sigAsset: sigAsset || null };
+  return { binaryAsset, sigAsset };
 }
