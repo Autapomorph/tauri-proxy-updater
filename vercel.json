@@ -27,12 +27,12 @@
       "destination": "/api/latest"
     },
     {
-      "source": "/changelog/:tag",
-      "destination": "/api/changelog?tag=:tag"
+      "source": "/changelogs/:version",
+      "destination": "/api/changelogs?version=:version"
     },
     {
-      "source": "/changelog",
-      "destination": "/api/changelog"
+      "source": "/changelogs",
+      "destination": "/api/changelogs"
     }
   ]
 }
