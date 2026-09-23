@@ -8,7 +8,7 @@
         { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Prerelease-Updates, X-Prerelease-Enabled"
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Prerelease-Updates, X-Prerelease-Enabled, X-Update-Channel"
         }
       ]
     }
@@ -23,8 +23,12 @@
       "destination": "/api/download"
     },
     {
+      "source": "/latest.:channel*.json",
+      "destination": "/api/latest?file=latest.:channel*.json"
+    },
+    {
       "source": "/latest.json",
-      "destination": "/api/latest"
+      "destination": "/api/latest?file=latest.json"
     },
     {
       "source": "/changelogs/:version",
