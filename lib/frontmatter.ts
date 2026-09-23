@@ -1,4 +1,7 @@
-import type { ParsedFrontmatter } from './types.js';
+export interface ParsedFrontmatter {
+  content: string;
+  meta: Record<string, unknown>;
+}
 
 export function parseFrontmatter(raw: string): ParsedFrontmatter {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(raw);
