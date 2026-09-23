@@ -1,104 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
-
-interface GitHubContentItem {
-  name: string;
-  type: string;
-}
-
-interface GitHubRelease {
-  tag_name: string;
-  body: string;
-  published_at: string;
-}
-
-interface ParsedFrontmatter {
-  meta: Record<string, unknown>;
-  content: string;
-}
-
-function parseSemver(v: string) {
-  const clean = v.replace(/^v/, '');
-  const [main, pre] = clean.split('-');
-  const parts = main.split('.').map(n => parseInt(n, 10) || 0);
-  return { parts, pre };
-}
-
-function compareSemverDesc(a: string, b: string): number {
-  const vA = parseSemver(a);
-  const vB = parseSemver(b);
-
-  const maxLen = Math.max(vA.parts.length, vB.parts.length);
-
-  for (let i = 0; i < maxLen; i += 1) {
-    const numA = vA.parts[i] ?? 0;
-    const numB = vB.parts[i] ?? 0;
-
-    if (numA !== numB) {
-      return numB - numA;
-    }
-  }
-
-  if (!vA.pre && vB.pre) {
-    return -1;
-  }
-
-  if (vA.pre && !vB.pre) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function parseFrontmatter(raw: string): ParsedFrontmatter {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(raw);
-
-  if (!match) {
-    return { meta: {}, content: raw.trim() };
-  }
-
-  const frontmatterBlock = match[1];
-  const content = match[2].trim();
-  const meta: Record<string, unknown> = {};
-
-  for (const line of frontmatterBlock.split('\n')) {
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-
-    const colonIndex = trimmed.indexOf(':');
-
-    if (colonIndex === -1) {
-      continue;
-    }
-
-    const key = trimmed.slice(0, colonIndex).trim();
-    let value = trimmed.slice(colonIndex + 1).trim();
-
-    if (value.startsWith('[') && value.endsWith(']')) {
-      const items = value
-        .slice(1, -1)
-        .split(',')
-        .map(s => s.trim().replace(/^['"]|['"]$/g, ''))
-        .filter(Boolean);
-
-      meta[key] = items;
-    } else {
-      value = value.replace(/^['"]|['"]$/g, '');
-      meta[key] = value;
-    }
-  }
-
-  return { meta, content };
-}
+import { parseFrontmatter } from '../lib/frontmatter.js';
+import {
+  type GitHubContentItem,
+  type GitHubRelease,
+  getGitHubHeaders,
+  REPO_API_URL,
+} from '../lib/github.js';
+import { compareSemver, isStableVersion } from '../lib/semver.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Update-Channel');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -132,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (mdxResponse.ok) {
         const rawText = await mdxResponse.text();
-        const { meta, content } = parseFrontmatter(rawText);
+        const { content, meta } = parseFrontmatter(rawText);
 
         res.setHeader('Vary', 'Origin');
         res.setHeader(
@@ -140,7 +54,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
         );
 
-        const releasedAt = meta.released_at || meta.releasedAt || meta.date || null;
+        const releasedAt =
+          (meta.released_at as string | undefined) ??
+          (meta.releasedAt as string | undefined) ??
+          (meta.date as string | undefined) ??
+          null;
 
         return res.status(200).json({
           version: cleanVersion,
@@ -202,14 +120,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const items: GitHubContentItem[] = await ghResponse.json();
 
-    const versions = items
+    let versions = items
       .filter(
         item => item.type === 'file' && (item.name.endsWith('.mdx') || item.name.endsWith('.md')),
       )
       .map(item => item.name.replace(/\.mdx?$/, ''))
-      .sort(compareSemverDesc);
+      .sort((a, b) => compareSemver(a, b));
 
-    res.setHeader('Vary', 'Origin');
+    const queryChannel = Array.isArray(req.query.channel)
+      ? req.query.channel[0]
+      : req.query.channel;
+    const headerChannel = Array.isArray(req.headers['x-update-channel'])
+      ? req.headers['x-update-channel'][0]
+      : req.headers['x-update-channel'];
+
+    // Query parameter takes precedence over HTTP header
+    const channel = queryChannel ?? headerChannel;
+    if (channel?.toLowerCase() === 'stable') {
+      versions = versions.filter(isStableVersion);
+    }
+
+    res.setHeader('Vary', 'Origin, X-Update-Channel');
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=120, stale-while-revalidate=600');
 
     return res.status(200).json({ versions });
