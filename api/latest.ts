@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { REPO_API_URL, getGitHubHeaders } from '../lib/github.js';
+import { getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { REPO_API_URL, getGitHubHeaders } from '../lib/github.js';
+import { getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
 
 interface GitHubContentItem {
   name: string;
@@ -14,7 +14,7 @@ interface GitHubRelease {
 }
 
 interface ParsedFrontmatter {
-  meta: Record<string, any>;
+  meta: Record<string, unknown>;
   content: string;
 }
 
@@ -31,7 +31,7 @@ function compareSemverDesc(a: string, b: string): number {
 
   const maxLen = Math.max(vA.parts.length, vB.parts.length);
 
-  for (let i = 0; i < maxLen; i++) {
+  for (let i = 0; i < maxLen; i += 1) {
     const numA = vA.parts[i] ?? 0;
     const numB = vB.parts[i] ?? 0;
 
@@ -52,7 +52,7 @@ function compareSemverDesc(a: string, b: string): number {
 }
 
 function parseFrontmatter(raw: string): ParsedFrontmatter {
-  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(raw);
 
   if (!match) {
     return { meta: {}, content: raw.trim() };
@@ -60,7 +60,7 @@ function parseFrontmatter(raw: string): ParsedFrontmatter {
 
   const frontmatterBlock = match[1];
   const content = match[2].trim();
-  const meta: Record<string, any> = {};
+  const meta: Record<string, unknown> = {};
 
   for (const line of frontmatterBlock.split('\n')) {
     const trimmed = line.trim();
@@ -174,7 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({
           tag_name: release.tag_name,
-          version: version,
+          version,
           released_at: release.published_at || null,
           tags: [],
           notes: release.body || '',

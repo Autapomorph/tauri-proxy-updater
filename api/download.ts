@@ -1,22 +1,22 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { REPO_API_URL, getGitHubHeaders } from '../lib/github.js';
+import { getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const asset_id = Array.isArray(req.query.asset_id) ? req.query.asset_id[0] : req.query.asset_id;
+  const assetId = Array.isArray(req.query.asset_id) ? req.query.asset_id[0] : req.query.asset_id;
 
-  if (!asset_id || !/^\d+$/.test(asset_id)) {
+  if (!assetId || !/^\d+$/.test(assetId)) {
     return res.status(400).send('Invalid or missing asset_id parameter');
   }
 
   try {
     const headers = getGitHubHeaders({ Accept: 'application/octet-stream' });
 
-    const assetResponse = await fetch(`${REPO_API_URL}/releases/assets/${asset_id}`, {
+    const assetResponse = await fetch(`${REPO_API_URL}/releases/assets/${assetId}`, {
       headers,
       redirect: 'manual',
     });

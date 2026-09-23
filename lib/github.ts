@@ -1,6 +1,4 @@
-export const GITHUB_OWNER = process.env.GITHUB_OWNER;
-export const GITHUB_REPO = process.env.GITHUB_REPO;
-export const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+export const { GITHUB_OWNER, GITHUB_REPO, GITHUB_TOKEN } = process.env;
 
 export const GITHUB_API_VERSION = '2026-03-10';
 

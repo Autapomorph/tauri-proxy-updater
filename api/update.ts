@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { REPO_API_URL, getGitHubHeaders } from '../lib/github.js';
+import { getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
 
 interface GitHubAsset {
   id: number;
@@ -19,12 +19,13 @@ interface TauriUpdateResponse {
   version: string;
   pub_date: string;
   notes: string;
-  platforms: {
-    [key: string]: {
+  platforms: Record<
+    string,
+    {
       url: string;
       signature: string;
-    };
-  };
+    }
+  >;
 }
 
 interface MatchedAssets {
@@ -112,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       platforms: {
         [target]: {
           url: `${protocol}://${host}/download?asset_id=${binaryAsset.id}`,
-          signature: signature,
+          signature,
         },
       },
     };

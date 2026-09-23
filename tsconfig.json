@@ -1,5 +1,9 @@
 {
+  "typeRoots": ["./node_modules/@types", "./src/@types"],
   "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
@@ -12,5 +16,6 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["api/**/*", "lib/**/*"]
+  "include": ["api/**/*", "lib/**/*", "eslint.config.ts"],
+  "exclude": ["node_modules"]
 }
