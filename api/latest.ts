@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { getManifestPath, MANIFEST_SOURCE, REPO_BRANCH } from '../lib/config.js';
+import { getManifestPath, MANIFEST_SOURCE, REPO_BRANCH } from '../lib/config/index.js';
 import { getProvider } from '../lib/providers/index.js';
 import { getEligibleReleases } from '../lib/semver.js';
 

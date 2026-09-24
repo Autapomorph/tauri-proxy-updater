@@ -7,7 +7,7 @@ import { GitLabProvider } from './gitlab.js';
 import { GitVerseProvider } from './gitverse.js';
 import { OneDevProvider } from './onedev.js';
 import type { GitProvider } from './types.js';
-import { type SupportedGitProvider, GIT_PROVIDER } from '../config.js';
+import { type SupportedGitProvider, GIT_PROVIDER } from '../config/index.js';
 
 export * from './types.js';
 

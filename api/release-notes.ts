@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { RELEASE_NOTES_DIR, REPO_BRANCH } from '../lib/config.js';
+import { RELEASE_NOTES_DIR, REPO_BRANCH } from '../lib/config/index.js';
 import { parseFrontmatter } from '../lib/frontmatter.js';
 import { getProvider } from '../lib/providers/index.js';
 import { compareSemver, isStableVersion } from '../lib/semver.js';

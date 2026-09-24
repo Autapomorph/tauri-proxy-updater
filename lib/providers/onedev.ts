@@ -5,7 +5,13 @@ import {
   type UnifiedRelease,
   DEFAULT_CONTENT_TYPE,
 } from './types.js';
-import { GIT_API_URL, GIT_TOKEN, REPO_NAME, REPO_OWNER, validateProviderEnv } from '../config.js';
+import {
+  GIT_API_URL,
+  GIT_TOKEN,
+  REPO_NAME,
+  REPO_OWNER,
+  validateProviderEnv,
+} from '../config/index.js';
 
 interface OneDevTag {
   message?: string;
