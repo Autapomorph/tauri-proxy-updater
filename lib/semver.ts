@@ -36,3 +36,41 @@ export function isStableVersion(version: string): boolean {
 
   return parsed.prerelease.length === 0;
 }
+
+export interface EligibleReleaseCandidate {
+  draft?: boolean;
+  prerelease?: boolean;
+  tag_name: string;
+}
+
+export interface GetEligibleReleasesOptions {
+  wantPrerelease: boolean;
+}
+
+export function getEligibleReleases<T extends EligibleReleaseCandidate>(
+  releases: T[],
+  options: GetEligibleReleasesOptions,
+): T[] {
+  const eligible = releases.filter(r => {
+    if (r.draft) {
+      return false;
+    }
+
+    const releaseVer = r.tag_name.replace(/^v/, '').trim();
+    const parsed = semver.valid(releaseVer);
+    if (!parsed) {
+      return false;
+    }
+
+    if (!options.wantPrerelease) {
+      const isPre = Boolean(r.prerelease) || !isStableVersion(releaseVer);
+      if (isPre) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  return eligible.sort((a, b) => compareSemver(a.tag_name, b.tag_name));
+}

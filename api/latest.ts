@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { getManifestPath, REPO_BRANCH } from '../lib/config.js';
+import { getManifestPath, MANIFEST_SOURCE, REPO_BRANCH } from '../lib/config.js';
 import { getProvider } from '../lib/providers/index.js';
+import { getEligibleReleases } from '../lib/semver.js';
 
 const VALID_LATEST_FILE_PATTERN = /^latest(\.[a-zA-Z0-9_.-]+)*\.json$/i;
 const DEFAULT_MANIFEST_FILE = 'latest.json';
@@ -51,18 +52,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     fileName = requestedFile.toLowerCase();
   }
 
+  const isStable = fileName === DEFAULT_MANIFEST_FILE || fileName === 'latest.stable.json';
+  const wantPrerelease = !isStable;
+
   try {
     const provider = getProvider();
-    const manifestPath = getManifestPath(fileName);
-    let content = await provider.getRawFile(manifestPath, REPO_BRANCH);
+    let content: string | null = null;
 
-    // Fallback to default latest.json if channel-specific manifest is not found in repo
-    if (!content && fileName !== DEFAULT_MANIFEST_FILE) {
-      content = await provider.getRawFile(getManifestPath(DEFAULT_MANIFEST_FILE), REPO_BRANCH);
+    // 1. Try resolving manifest from release assets (if MANIFEST_SOURCE is 'auto' or 'releases')
+    if (MANIFEST_SOURCE !== 'repo') {
+      try {
+        const releases = await provider.getReleases();
+        if (Array.isArray(releases) && releases.length > 0) {
+          const eligibleReleases = getEligibleReleases(releases, { wantPrerelease });
+
+          let targetAsset;
+
+          // Find the highest SemVer release that contains the requested manifest asset
+          for (const release of eligibleReleases) {
+            const asset = release.assets.find(a => a.name.toLowerCase() === fileName.toLowerCase());
+
+            if (asset) {
+              targetAsset = asset;
+              break;
+            }
+          }
+
+          // Fallback to default latest.json in releases if channel-specific manifest was not found
+          if (!targetAsset && fileName !== DEFAULT_MANIFEST_FILE) {
+            for (const release of eligibleReleases) {
+              const defaultAsset = release.assets.find(
+                a => a.name.toLowerCase() === DEFAULT_MANIFEST_FILE,
+              );
+
+              if (defaultAsset) {
+                targetAsset = defaultAsset;
+                break;
+              }
+            }
+          }
+
+          if (targetAsset) {
+            content = await provider.getAssetSignature(targetAsset);
+          }
+        }
+      } catch (err: unknown) {
+        if (MANIFEST_SOURCE === 'releases') {
+          throw err;
+        }
+      }
+    }
+
+    // 2. Fallback to repository files (if MANIFEST_SOURCE is 'auto' or 'repo')
+    if (!content && MANIFEST_SOURCE !== 'releases') {
+      const manifestPath = getManifestPath(fileName);
+      content = await provider.getRawFile(manifestPath, REPO_BRANCH);
+
+      // Fallback to default latest.json if channel-specific manifest is not found in repo
+      if (!content && fileName !== DEFAULT_MANIFEST_FILE) {
+        content = await provider.getRawFile(getManifestPath(DEFAULT_MANIFEST_FILE), REPO_BRANCH);
+      }
     }
 
     if (!content) {
-      return res.status(502).send(`Error fetching ${manifestPath} from provider`);
+      return res.status(502).send(`Error fetching manifest '${fileName}' from provider`);
     }
 
     const data: unknown = JSON.parse(content);

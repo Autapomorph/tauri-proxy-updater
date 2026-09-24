@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import semver from 'semver';
 
 import { getProvider } from '../lib/providers/index.js';
-import { compareSemver, isStableVersion } from '../lib/semver.js';
+import { getEligibleReleases } from '../lib/semver.js';
 import { type TauriUpdateResponse, findReleaseAssets } from '../lib/updater.js';
 
 const DEFAULT_CHANNEL = 'stable';
@@ -45,36 +45,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).send('No releases found on provider');
     }
 
-    // Filter out drafts and invalid tags
-    const eligibleReleases = releases.filter(r => {
-      if (r.draft) {
-        return false;
-      }
-
-      const releaseVer = r.tag_name.replace(/^v/, '').trim();
-      const parsed = semver.valid(releaseVer);
-      if (!parsed) {
-        return false;
-      }
-
-      // If client does not want pre-releases, exclude both provider prerelease flag and pre-release tag identifiers
-      if (!wantPrerelease) {
-        const isPre = Boolean(r.prerelease) || !isStableVersion(releaseVer);
-        if (isPre) {
-          return false;
-        }
-      }
-
-      return true;
-    });
+    const eligibleReleases = getEligibleReleases(releases, { wantPrerelease });
 
     if (eligibleReleases.length === 0) {
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
       return res.status(204).end();
     }
-
-    // Sort strictly by SemVer 2.0 descending
-    eligibleReleases.sort((a, b) => compareSemver(a.tag_name, b.tag_name));
 
     const candidate = eligibleReleases[0];
     const candidateVersion = candidate.tag_name.replace(/^v/, '').trim();
