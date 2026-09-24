@@ -37,14 +37,6 @@
     {
       "source": "/release-notes",
       "destination": "/api/release-notes"
-    },
-    {
-      "source": "/changelogs/:version",
-      "destination": "/api/release-notes?version=:version"
-    },
-    {
-      "source": "/changelogs",
-      "destination": "/api/release-notes"
     }
   ]
 }
