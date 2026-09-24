@@ -1,8 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { getGitHubHeaders, REPO_API_URL, REPO_BRANCH } from '../lib/github.js';
+import { REPO_BRANCH } from '../lib/config.js';
+import { getProvider } from '../lib/providers/index.js';
 
 const VALID_LATEST_FILE_PATTERN = /^latest(\.[a-zA-Z0-9_.-]+)*\.json$/i;
+const DEFAULT_MANIFEST_FILE = 'latest.json';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
@@ -23,10 +25,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const isChannelSpecificFile = Boolean(
     requestedFile &&
     VALID_LATEST_FILE_PATTERN.test(requestedFile) &&
-    requestedFile.toLowerCase() !== 'latest.json',
+    requestedFile.toLowerCase() !== DEFAULT_MANIFEST_FILE,
   );
 
-  let fileName = 'latest.json';
+  let fileName = DEFAULT_MANIFEST_FILE;
 
   // Priority:
   // 1. Explicit query ?channel= takes precedence over file / header
@@ -50,20 +52,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const headers = getGitHubHeaders({ Accept: 'application/vnd.github.v3.raw' });
-    const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
-    let ghResponse = await fetch(`${REPO_API_URL}/contents/${fileName}${refParam}`, { headers });
+    const provider = getProvider();
+    let content = await provider.getRawFile(fileName, REPO_BRANCH);
 
-    // Fallback to default latest.json if channel-specific manifest is not found in GitHub repo
-    if (!ghResponse.ok && fileName !== 'latest.json') {
-      ghResponse = await fetch(`${REPO_API_URL}/contents/latest.json${refParam}`, { headers });
+    // Fallback to default latest.json if channel-specific manifest is not found in repo
+    if (!content && fileName !== DEFAULT_MANIFEST_FILE) {
+      content = await provider.getRawFile(DEFAULT_MANIFEST_FILE, REPO_BRANCH);
     }
 
-    if (!ghResponse.ok) {
-      return res.status(502).send(`Error fetching ${fileName} from GitHub`);
+    if (!content) {
+      return res.status(502).send(`Error fetching ${fileName} from provider`);
     }
 
-    const data: unknown = await ghResponse.json();
+    const data: unknown = JSON.parse(content);
     res.setHeader('Vary', 'Origin, X-Update-Channel');
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
     return res.status(200).json(data);

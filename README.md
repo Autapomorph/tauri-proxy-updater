@@ -1,21 +1,24 @@
 # Tauri Updater Proxy
 
-A high-performance auto-updater and release notes proxy server for Tauri v2 applications, designed to securely distribute updates and release notes from private or public GitHub repositories.
+A high-performance, multi-provider auto-updater and release notes proxy server for Tauri v2 applications. It allows you to securely distribute updates and release notes from private or public repositories across all major Git hosting platforms.
 
-It shields your `GITHUB_TOKEN` from end-users, streams installer downloads, handles multi-channel releases (`stable` and `prerelease`), and serves markdown/MDX release notes.
+Supported platforms include **GitHub** (Cloud & Enterprise Server), **GitLab** (Cloud & Self-Managed), **Gitea / Forgejo / Codeberg**, **GitVerse**, **GitFlic**, **Bitbucket Cloud**, **Azure DevOps**, and **OneDev**.
+
+It shields your access tokens from end-users, streams installer downloads, handles multi-channel releases (`stable` and `prerelease`), and serves markdown/MDX release notes.
 
 ---
 
 ## Features
 
-- **Token Security:** Hides GitHub credentials from client apps; end-users never see or need API tokens.
+- **Multi-Provider Support:** First-class support for GitHub, GitLab, Gitea, Forgejo, Codeberg, GitVerse, GitFlic, Bitbucket, Azure DevOps, and OneDev (including self-hosted/enterprise instances).
+- **Token Security:** Hides credentials from client apps; end-users never see or need API tokens.
 - **Dynamic Updates:** Natively compatible with `@tauri-apps/plugin-updater` v2 format.
 - **Multi-Channel Releases:** Segregates `stable` and `prerelease` (beta/alpha) channels.
 - **Flexible Channel Selection:** Supports channel selection via HTTP header or query parameter, with well-defined priority.
-- **Binary Streaming:** Efficiently proxies binary downloads (`.exe`, `.zip`, `.sig`, `.dmg`, etc.) directly from GitHub release assets without memory bloat.
+- **Binary Streaming:** Efficiently proxies binary downloads (`.exe`, `.zip`, `.sig`, `.dmg`, etc.) directly from release assets without memory bloat.
 - **Static Manifest Support:** Serves `latest.json`, `latest.stable.json`, and `latest.prerelease.json` manifests directly from the repository with automated fallbacks.
-- **Rich Release Notes System:** Serves dedicated version release notes written in Markdown or MDX (`release-notes/<version>.mdx`), with full YAML frontmatter parsing (`title`, `date`, `tags`), falling back to GitHub release notes when needed.
-- **Branch & Directory Customization:** Configurable target repository branch (`REPO_BRANCH`) and release notes folder (`RELEASE_NOTES_DIR`).
+- **Rich Release Notes System:** Serves dedicated version release notes written in Markdown or MDX (`release-notes/<version>.mdx`), with full YAML frontmatter parsing (`title`, `date`, `tags`), falling back to provider release notes when needed.
+- **Full Customization:** Configurable target repository branch (`REPO_BRANCH`) and release notes folder (`RELEASE_NOTES_DIR`).
 
 ---
 
@@ -45,12 +48,12 @@ Primary endpoint for the Tauri updater client.
 GET /download?asset_id=:id
 ```
 
-Securely proxies the release binary asset download from GitHub.
+Securely proxies the release binary asset download from the Git provider.
 
 - **Query Parameters:**
-  - `asset_id` — GitHub release asset ID.
+  - `asset_id` — Provider release asset identifier.
 - **Response:**
-  - Streams the file with `Content-Type: application/octet-stream` and proper `Content-Disposition`.
+  - Streams or redirects to the file with `Content-Type: application/octet-stream` and proper `Content-Disposition`.
 
 ---
 
@@ -81,7 +84,7 @@ Fetches the release notes for a specific version.
   - `:version` — Version string (e.g. `1.3.1`, `v1.3.1`, `1.4.0-beta.1`).
 - **Resolution Strategy:**
   1. Searches for `<RELEASE_NOTES_DIR>/<version>.mdx` (or `.md`) on `REPO_BRANCH` (defaults to `release-notes/<version>.mdx`).
-  2. If not found, falls back to the body of the corresponding GitHub release tag.
+  2. If not found, falls back to the body of the corresponding provider release/tag.
 - **Response Example:**
   ```json
   {
@@ -155,38 +158,116 @@ const betaUpdate = await check({
 });
 ```
 
-### Manual Testing with curl
-
-```bash
-# Using HTTP header:
-curl -H "X-Update-Channel: prerelease" "https://your-proxy.vercel.app/update/windows-x86_64/1.3.1"
-
-# Using query parameter (overrides header):
-curl "https://your-proxy.vercel.app/update/windows-x86_64/1.3.1?channel=prerelease"
-```
-
 ---
 
 ## Environment Variables
 
 Configure these variables in your deployment environment (e.g. Vercel Project Settings):
 
-| Variable            | Required |     Default     | Description                                                                              |
-| :------------------ | :------: | :-------------: | :--------------------------------------------------------------------------------------- |
-| `GITHUB_TOKEN`      | **Yes**  |        —        | GitHub Personal Access Token (Classic with `repo` or fine-grained with `contents:read`). |
-| `GITHUB_OWNER`      | **Yes**  |        —        | GitHub repository owner (username or organization).                                      |
-| `GITHUB_REPO`       | **Yes**  |        —        | GitHub repository name.                                                                  |
-| `REPO_BRANCH`       |    No    |     `main`      | Target repository branch for fetching manifests (`latest*.json`) and release notes.      |
-| `RELEASE_NOTES_DIR` |    No    | `release-notes` | Target directory in repository where release notes (`.md` / `.mdx`) are located.         |
+| Variable            | Required |     Default     | Description                                                                                                                                                                          |
+| :------------------ | :------: | :-------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_PROVIDER`      |    No    |    `github`     | Git provider: `github`, `gitlab`, `gitea`, `gitverse`, `gitflic`, `bitbucket`, `azure_devops`, or `onedev`.                                                                          |
+| `GIT_TOKEN`         | **Yes**  |        —        | Personal Access Token with repository read access.                                                                                                                                   |
+| `REPO_OWNER`        | **Yes**  |        —        | Repository owner / group / organization. For Azure DevOps: `org` or `org/project`.                                                                                                   |
+| `REPO_NAME`         | **Yes**  |        —        | Repository / project name.                                                                                                                                                           |
+| `GIT_API_URL`       |    No    |        —        | Custom API Base URL for self-hosted instances (e.g. `https://gitlab.mycompany.com/api/v4`, `https://github.corp.com/api/v3`, `https://codeberg.org/api/v1`). Auto-detected if empty. |
+| `REPO_BRANCH`       |    No    |     `main`      | Target repository branch for fetching manifests (`latest*.json`) and release notes.                                                                                                  |
+| `RELEASE_NOTES_DIR` |    No    | `release-notes` | Target directory in repository where release notes (`.md` / `.mdx`) are located.                                                                                                     |
+
+---
+
+## Provider Setup Examples
+
+### 1. GitHub (Default)
+
+```bash
+GIT_PROVIDER=github
+GIT_TOKEN=ghp_yourPersonalAccessTokenHere
+REPO_OWNER=my-org
+REPO_NAME=my-app
+```
+
+_For GitHub Enterprise Server:_ set `GIT_API_URL=https://github.mycompany.com/api/v3`.
+
+### 2. GitLab (Cloud or Self-Managed)
+
+```bash
+GIT_PROVIDER=gitlab
+GIT_TOKEN=glpat-yourPersonalAccessTokenHere
+REPO_OWNER=my-group
+REPO_NAME=my-app
+```
+
+_For GitLab Self-Managed:_ set `GIT_API_URL=https://gitlab.mycompany.com/api/v4`.
+
+### 3. Gitea / Forgejo / Codeberg
+
+```bash
+GIT_PROVIDER=gitea
+GIT_TOKEN=your_gitea_token
+REPO_OWNER=my-org
+REPO_NAME=my-app
+GIT_API_URL=https://codeberg.org/api/v1  # or https://gitea.mycompany.com/api/v1
+```
+
+### 4. GitVerse (Сбер / СберТех)
+
+```bash
+GIT_PROVIDER=gitverse
+GIT_TOKEN=your_gitverse_token
+REPO_OWNER=my-org
+REPO_NAME=my-app
+```
+
+_Pre-configured with `https://gitverse.ru/api/v1`._
+
+### 5. GitFlic (ГК «Астра» / Ресолют)
+
+```bash
+GIT_PROVIDER=gitflic
+GIT_TOKEN=your_gitflic_token
+REPO_OWNER=my-alias
+REPO_NAME=my-project
+```
+
+_Pre-configured with `https://api.gitflic.ru` (set `GIT_API_URL` for self-hosted GitFlic Enterprise)._
+
+### 6. Bitbucket Cloud
+
+```bash
+GIT_PROVIDER=bitbucket
+GIT_TOKEN=your_app_password_or_token  # For Basic auth: username:app_password
+REPO_OWNER=my-workspace
+REPO_NAME=my-repo
+```
+
+### 7. Azure DevOps
+
+```bash
+GIT_PROVIDER=azure_devops
+GIT_TOKEN=your_azure_personal_access_token
+REPO_OWNER=my-organization/my-project
+REPO_NAME=my-repo
+```
+
+### 8. OneDev
+
+```bash
+GIT_PROVIDER=onedev
+GIT_TOKEN=your_onedev_access_token
+REPO_OWNER=my-group
+REPO_NAME=my-project
+GIT_API_URL=https://code.onedev.io/~api  # or https://onedev.mycompany.com/~api
+```
 
 ---
 
 ## Deployment to Vercel
 
-1. Create a GitHub repository (e.g. `tauri-proxy-updater`) and push this project.
+1. Create a Git repository (e.g. `tauri-proxy-updater`) and push this project.
 2. Log in to [Vercel](https://vercel.com/) and click **Add New -> Project**.
 3. Select your repository, leave **Framework Preset** as **Other**, and click **Deploy**.
-4. In the Vercel Dashboard, go to **Settings -> Environment Variables** and add `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, and optionally `REPO_BRANCH`, `RELEASE_NOTES_DIR`.
+4. In the Vercel Dashboard, go to **Settings -> Environment Variables** and add your provider configuration (e.g. `GIT_PROVIDER`, `GIT_TOKEN`, `REPO_OWNER`, `REPO_NAME`).
 5. Redeploy the latest deployment to apply the environment variables.
 
 ---
@@ -200,8 +281,7 @@ In your Tauri project's `tauri.conf.json`, specify your proxy endpoint:
   "updater": {
     "pubkey": "<your-tauri-pubkey>",
     "endpoints": [
-      "https://your-proxy.vercel.app/update/{{target}}-{{arch}}/{{current_version}}",
-      "https://raw.githubusercontent.com/<owner>/<repo>/main/latest.json"
+      "https://your-proxy.vercel.app/update/{{target}}-{{arch}}/{{current_version}}"
     ]
   }
 }

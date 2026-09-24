@@ -1,6 +1,9 @@
+import { Readable } from 'node:stream';
+import type { ReadableStream as WebReadableStream } from 'node:stream/web';
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
+import { getProvider } from '../lib/providers/index.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -9,27 +12,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const assetId = Array.isArray(req.query.asset_id) ? req.query.asset_id[0] : req.query.asset_id;
 
-  if (!assetId || !/^\d+$/.test(assetId)) {
+  if (!assetId || typeof assetId !== 'string') {
     return res.status(400).send('Invalid or missing asset_id parameter');
   }
 
   try {
-    const headers = getGitHubHeaders({ Accept: 'application/octet-stream' });
+    const provider = getProvider();
+    const result = await provider.streamAsset(assetId);
 
-    const assetResponse = await fetch(`${REPO_API_URL}/releases/assets/${assetId}`, {
-      headers,
-      redirect: 'manual',
-    });
-
-    const redirectUrl = assetResponse.headers.get('location');
-
-    if (assetResponse.status === 302 && redirectUrl) {
-      res.setHeader('Location', redirectUrl);
+    if (result.redirectUrl) {
+      res.setHeader('Location', result.redirectUrl);
       res.setHeader('Cache-Control', 'public, max-age=300');
       return res.status(302).end();
     }
 
-    return res.status(500).send('Failed to get download link from GitHub');
+    if (result.stream) {
+      if (result.contentType) {
+        res.setHeader('Content-Type', result.contentType);
+      }
+
+      if (result.contentLength) {
+        res.setHeader('Content-Length', result.contentLength);
+      }
+
+      if (result.contentDisposition) {
+        res.setHeader('Content-Disposition', result.contentDisposition);
+      }
+
+      res.setHeader('Cache-Control', 'public, max-age=300');
+
+      if (result.stream instanceof Readable) {
+        return result.stream.pipe(res);
+      }
+
+      const nodeStream = Readable.fromWeb(result.stream as WebReadableStream);
+      return nodeStream.pipe(res);
+    }
+
+    return res.status(500).send('Failed to stream asset from provider');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     return res.status(500).send(message);

@@ -1,9 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import semver from 'semver';
 
-import { type GitHubRelease, getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
+import { getProvider } from '../lib/providers/index.js';
 import { compareSemver, isStableVersion } from '../lib/semver.js';
 import { type TauriUpdateResponse, findReleaseAssets } from '../lib/updater.js';
+
+const DEFAULT_CHANNEL = 'stable';
+const DEFAULT_PROTOCOL = 'https';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
@@ -24,8 +27,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cleanCurrentVersion = version.replace(/^v/, '').trim();
 
   try {
-    const headers = getGitHubHeaders({ Accept: 'application/vnd.github+json' });
-
     const queryChannel = Array.isArray(req.query.channel)
       ? req.query.channel[0]
       : req.query.channel;
@@ -34,19 +35,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : req.headers['x-update-channel'];
 
     // Query parameter takes precedence over HTTP header
-    const channel = (queryChannel ?? headerChannel)?.toLowerCase() ?? 'stable';
-    const wantPrerelease = channel !== 'stable';
+    const channel = (queryChannel ?? headerChannel)?.toLowerCase() ?? DEFAULT_CHANNEL;
+    const wantPrerelease = channel !== DEFAULT_CHANNEL;
 
-    const ghResponse = await fetch(`${REPO_API_URL}/releases`, { headers });
-
-    if (!ghResponse.ok) {
-      return res.status(502).send('Error fetching releases from GitHub');
-    }
-
-    const releases = (await ghResponse.json()) as GitHubRelease[];
+    const provider = getProvider();
+    const releases = await provider.getReleases();
 
     if (!Array.isArray(releases) || releases.length === 0) {
-      return res.status(404).send('No releases found on GitHub');
+      return res.status(404).send('No releases found on provider');
     }
 
     // Filter out drafts and invalid tags
@@ -61,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return false;
       }
 
-      // If client does not want pre-releases, exclude both GitHub prerelease flag and pre-release tag identifiers
+      // If client does not want pre-releases, exclude both provider prerelease flag and pre-release tag identifiers
       if (!wantPrerelease) {
         const isPre = Boolean(r.prerelease) || !isStableVersion(releaseVer);
         if (isPre) {
@@ -106,13 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let signature = '';
     if (sigAsset) {
-      const sigResponse = await fetch(sigAsset.url, {
-        headers: getGitHubHeaders({ Accept: 'application/octet-stream' }),
-      });
-
-      if (sigResponse.ok) {
-        signature = (await sigResponse.text()).trim();
-      }
+      signature = await provider.getAssetSignature(sigAsset);
     }
 
     const protocolHeader = req.headers['x-forwarded-proto'];
@@ -120,16 +110,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const protocol = Array.isArray(protocolHeader)
       ? protocolHeader[0]
-      : (protocolHeader ?? 'https');
+      : (protocolHeader ?? DEFAULT_PROTOCOL);
     const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
 
     const tauriUpdateResponse: TauriUpdateResponse = {
       version: candidateVersion,
-      pub_date: candidate.published_at,
+      pub_date: candidate.published_at ?? '',
       notes: candidate.body,
       platforms: {
         [target]: {
-          url: `${protocol}://${host}/download?asset_id=${binaryAsset.id}`,
+          url: `${protocol}://${host}/download?asset_id=${encodeURIComponent(binaryAsset.id)}`,
           signature,
         },
       },

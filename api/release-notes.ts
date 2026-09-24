@@ -1,14 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+import { RELEASE_NOTES_DIR, REPO_BRANCH } from '../lib/config.js';
 import { parseFrontmatter } from '../lib/frontmatter.js';
-import {
-  type GitHubContentItem,
-  type GitHubRelease,
-  getGitHubHeaders,
-  RELEASE_NOTES_DIR,
-  REPO_API_URL,
-  REPO_BRANCH,
-} from '../lib/github.js';
+import { getProvider } from '../lib/providers/index.js';
 import { compareSemver, isStableVersion } from '../lib/semver.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -29,32 +23,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requestedVersion = versionParam ?? tagParam;
 
   try {
+    const provider = getProvider();
+
     // -----------------------------------------------------------------
     // Route 1: Specific version requested (GET /release-notes/:version)
     // -----------------------------------------------------------------
     if (requestedVersion) {
       const cleanVersion = requestedVersion.trim().replace(/^v+/, '');
-      const rawHeaders = getGitHubHeaders({ Accept: 'application/vnd.github.raw+json' });
-      const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
 
-      let mdxResponse = await fetch(
-        `${REPO_API_URL}/contents/${RELEASE_NOTES_DIR}/${cleanVersion}.mdx${refParam}`,
-        {
-          headers: rawHeaders,
-        },
+      let rawText = await provider.getRawFile(
+        `${RELEASE_NOTES_DIR}/${cleanVersion}.mdx`,
+        REPO_BRANCH,
       );
 
-      if (!mdxResponse.ok && mdxResponse.status === 404) {
-        mdxResponse = await fetch(
-          `${REPO_API_URL}/contents/${RELEASE_NOTES_DIR}/${cleanVersion}.md${refParam}`,
-          {
-            headers: rawHeaders,
-          },
-        );
-      }
+      rawText ??= await provider.getRawFile(`${RELEASE_NOTES_DIR}/${cleanVersion}.md`, REPO_BRANCH);
 
-      if (mdxResponse.ok) {
-        const rawText = await mdxResponse.text();
+      if (rawText) {
         const { content, meta } = parseFrontmatter(rawText);
 
         res.setHeader('Vary', 'Origin');
@@ -77,20 +61,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Fallback: Check GitHub Releases API for legacy releases
-      const jsonHeaders = getGitHubHeaders({ Accept: 'application/vnd.github+json' });
-      let ghResponse = await fetch(`${REPO_API_URL}/releases/tags/${cleanVersion}`, {
-        headers: jsonHeaders,
-      });
+      // Fallback: Check Provider Releases for legacy/tagged release
+      const release = await provider.getReleaseByTag(cleanVersion);
 
-      if (!ghResponse.ok && ghResponse.status === 404) {
-        ghResponse = await fetch(`${REPO_API_URL}/releases/tags/v${cleanVersion}`, {
-          headers: jsonHeaders,
-        });
-      }
-
-      if (ghResponse.ok) {
-        const release: GitHubRelease = await ghResponse.json();
+      if (release) {
         const version = release.tag_name.replace(/^v/, '');
 
         res.setHeader('Vary', 'Origin');
@@ -114,27 +88,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // -------------------------------------------------------------
     // Route 2: List of all versions requested (GET /release-notes)
     // -------------------------------------------------------------
-    const headers = getGitHubHeaders({ Accept: 'application/vnd.github+json' });
-    const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
-    const apiUrl = `${REPO_API_URL}/contents/${RELEASE_NOTES_DIR}${refParam}`;
+    const files = await provider.listDirectoryFiles(RELEASE_NOTES_DIR, REPO_BRANCH);
 
-    const ghResponse = await fetch(apiUrl, { headers });
-
-    if (ghResponse.status === 404) {
-      return res.status(200).json({ versions: [] });
+    if (files === null) {
+      return res.status(502).send('Error fetching release notes list from provider');
     }
 
-    if (!ghResponse.ok) {
-      return res.status(ghResponse.status).send('Error fetching release notes list from GitHub');
-    }
-
-    const items: GitHubContentItem[] = await ghResponse.json();
-
-    let versions = items
-      .filter(
-        item => item.type === 'file' && (item.name.endsWith('.mdx') || item.name.endsWith('.md')),
-      )
-      .map(item => item.name.replace(/\.mdx?$/, ''))
+    let versions = files
+      .filter(name => name.endsWith('.mdx') || name.endsWith('.md'))
+      .map(name => name.replace(/\.mdx?$/, ''))
       .sort((a, b) => compareSemver(a, b));
 
     const queryChannel = Array.isArray(req.query.channel)
