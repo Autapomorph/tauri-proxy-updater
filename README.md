@@ -18,7 +18,7 @@ It shields your access tokens from end-users, streams installer downloads, handl
 - **Binary Streaming:** Efficiently proxies binary downloads (`.exe`, `.zip`, `.sig`, `.dmg`, etc.) directly from release assets without memory bloat.
 - **Static Manifest Support:** Serves `latest.json`, `latest.stable.json`, and `latest.prerelease.json` manifests directly from the repository with automated fallbacks.
 - **Rich Release Notes System:** Serves dedicated version release notes written in Markdown or MDX (`release-notes/<version>.mdx`), with full YAML frontmatter parsing (`title`, `date`, `tags`), falling back to provider release notes when needed.
-- **Full Customization:** Configurable target repository branch (`REPO_BRANCH`) and release notes folder (`RELEASE_NOTES_DIR`).
+- **Full Customization:** Configurable target repository branch (`REPO_BRANCH`), manifests folder (`MANIFESTS_DIR`), and release notes folder (`RELEASE_NOTES_DIR`).
 
 ---
 
@@ -64,7 +64,7 @@ GET /latest.json
 GET /latest.:channel.json
 ```
 
-Serves static release manifests directly from the repository (`latest.json`, `latest.stable.json`, `latest.prerelease.json`).
+Serves static release manifests directly from the repository (`latest.json`, `latest.stable.json`, `latest.prerelease.json`), located in `<MANIFESTS_DIR>` (defaults to the repository root).
 
 - **Channel Selection:** via filename (e.g. `/latest.prerelease.json`), `?channel=` query parameter, or `X-Update-Channel` header.
 - **Fallback:** If a channel-specific file is not present in the repository, automatically falls back to `latest.json`.
@@ -172,6 +172,7 @@ Configure these variables in your deployment environment (e.g. Vercel Project Se
 | `REPO_NAME`         | **Yes**  |        —        | Repository / project name.                                                                                                                                                           |
 | `GIT_API_URL`       |    No    |        —        | Custom API Base URL for self-hosted instances (e.g. `https://gitlab.mycompany.com/api/v4`, `https://github.corp.com/api/v3`, `https://codeberg.org/api/v1`). Auto-detected if empty. |
 | `REPO_BRANCH`       |    No    |     `main`      | Target repository branch for fetching manifests (`latest*.json`) and release notes.                                                                                                  |
+| `MANIFESTS_DIR`     |    No    |   `""` (root)   | Target directory in repository where release manifests (`latest*.json`) are located (defaults to repository root).                                                                   |
 | `RELEASE_NOTES_DIR` |    No    | `release-notes` | Target directory in repository where release notes (`.md` / `.mdx`) are located.                                                                                                     |
 
 ---

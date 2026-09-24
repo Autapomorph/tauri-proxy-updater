@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { REPO_BRANCH } from '../lib/config.js';
+import { getManifestPath, REPO_BRANCH } from '../lib/config.js';
 import { getProvider } from '../lib/providers/index.js';
 
 const VALID_LATEST_FILE_PATTERN = /^latest(\.[a-zA-Z0-9_.-]+)*\.json$/i;
@@ -53,15 +53,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const provider = getProvider();
-    let content = await provider.getRawFile(fileName, REPO_BRANCH);
+    const manifestPath = getManifestPath(fileName);
+    let content = await provider.getRawFile(manifestPath, REPO_BRANCH);
 
     // Fallback to default latest.json if channel-specific manifest is not found in repo
     if (!content && fileName !== DEFAULT_MANIFEST_FILE) {
-      content = await provider.getRawFile(DEFAULT_MANIFEST_FILE, REPO_BRANCH);
+      content = await provider.getRawFile(getManifestPath(DEFAULT_MANIFEST_FILE), REPO_BRANCH);
     }
 
     if (!content) {
-      return res.status(502).send(`Error fetching ${fileName} from provider`);
+      return res.status(502).send(`Error fetching ${manifestPath} from provider`);
     }
 
     const data: unknown = JSON.parse(content);
