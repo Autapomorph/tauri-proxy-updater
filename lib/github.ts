@@ -1,5 +1,7 @@
 export const { GITHUB_OWNER, GITHUB_REPO, GITHUB_TOKEN } = process.env;
 
+export const REPO_BRANCH = process.env.REPO_BRANCH ?? 'main';
+
 export const GITHUB_API_VERSION = '2026-03-10';
 
 export const REPO_API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;

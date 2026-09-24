@@ -6,6 +6,7 @@ import {
   type GitHubRelease,
   getGitHubHeaders,
   REPO_API_URL,
+  REPO_BRANCH,
 } from '../lib/github.js';
 import { compareSemver, isStableVersion } from '../lib/semver.js';
 
@@ -33,15 +34,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (requestedVersion) {
       const cleanVersion = requestedVersion.trim().replace(/^v+/, '');
       const rawHeaders = getGitHubHeaders({ Accept: 'application/vnd.github.raw+json' });
+      const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
 
-      let mdxResponse = await fetch(`${REPO_API_URL}/contents/changelogs/${cleanVersion}.mdx`, {
-        headers: rawHeaders,
-      });
+      let mdxResponse = await fetch(
+        `${REPO_API_URL}/contents/changelogs/${cleanVersion}.mdx${refParam}`,
+        {
+          headers: rawHeaders,
+        },
+      );
 
       if (!mdxResponse.ok && mdxResponse.status === 404) {
-        mdxResponse = await fetch(`${REPO_API_URL}/contents/changelogs/${cleanVersion}.md`, {
-          headers: rawHeaders,
-        });
+        mdxResponse = await fetch(
+          `${REPO_API_URL}/contents/changelogs/${cleanVersion}.md${refParam}`,
+          {
+            headers: rawHeaders,
+          },
+        );
       }
 
       if (mdxResponse.ok) {
@@ -106,7 +114,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Route 2: List of all versions requested (GET /changelogs)
     // -------------------------------------------------------------
     const headers = getGitHubHeaders({ Accept: 'application/vnd.github+json' });
-    const apiUrl = `${REPO_API_URL}/contents/changelogs`;
+    const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
+    const apiUrl = `${REPO_API_URL}/contents/changelogs${refParam}`;
 
     const ghResponse = await fetch(apiUrl, { headers });
 

@@ -30,10 +30,11 @@ The proxy server needs environment variables to connect to your private reposito
 
 1. Generate a token on GitHub: [GitHub Developer Settings](https://github.com/settings/tokens) (type: Classic token, with `repo` or `contents: read` scopes).
 2. In the Vercel project dashboard, navigate to **Settings -> Environment Variables**.
-3. Add the following three variables:
+3. Add the following environment variables:
    - **Key**: `GITHUB_TOKEN` | **Value**: `<your_personal_access_token>`
    - **Key**: `GITHUB_OWNER` | **Value**: `<your_github_username_or_org>`
    - **Key**: `GITHUB_REPO` | **Value**: `<your_repository_name>`
+   - **Key**: `REPO_BRANCH` _(optional)_ | **Value**: `<target_branch_name>` (default: `main`)
 4. Go to the **Deployments** tab, click the three dots next to your latest deployment, and select **Redeploy** to apply the environment variables.
 
 ### Step 4. Configure your Tauri Application

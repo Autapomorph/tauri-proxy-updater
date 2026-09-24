@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { getGitHubHeaders, REPO_API_URL } from '../lib/github.js';
+import { getGitHubHeaders, REPO_API_URL, REPO_BRANCH } from '../lib/github.js';
 
 const VALID_LATEST_FILE_PATTERN = /^latest(\.[a-zA-Z0-9_.-]+)*\.json$/i;
 
@@ -51,11 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const headers = getGitHubHeaders({ Accept: 'application/vnd.github.v3.raw' });
-    let ghResponse = await fetch(`${REPO_API_URL}/contents/${fileName}`, { headers });
+    const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
+    let ghResponse = await fetch(`${REPO_API_URL}/contents/${fileName}${refParam}`, { headers });
 
     // Fallback to default latest.json if channel-specific manifest is not found in GitHub repo
     if (!ghResponse.ok && fileName !== 'latest.json') {
-      ghResponse = await fetch(`${REPO_API_URL}/contents/latest.json`, { headers });
+      ghResponse = await fetch(`${REPO_API_URL}/contents/latest.json${refParam}`, { headers });
     }
 
     if (!ghResponse.ok) {
