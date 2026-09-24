@@ -5,6 +5,7 @@ import {
   type GitHubContentItem,
   type GitHubRelease,
   getGitHubHeaders,
+  RELEASE_NOTES_DIR,
   REPO_API_URL,
   REPO_BRANCH,
 } from '../lib/github.js';
@@ -25,19 +26,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const versionParam = Array.isArray(req.query.version) ? req.query.version[0] : req.query.version;
   const tagParam = Array.isArray(req.query.tag) ? req.query.tag[0] : req.query.tag;
-  const requestedVersion = versionParam || tagParam;
+  const requestedVersion = versionParam ?? tagParam;
 
   try {
-    // -------------------------------------------------------------
-    // Route 1: Specific version requested (GET /changelogs/:version)
-    // -------------------------------------------------------------
+    // -----------------------------------------------------------------
+    // Route 1: Specific version requested (GET /release-notes/:version)
+    // -----------------------------------------------------------------
     if (requestedVersion) {
       const cleanVersion = requestedVersion.trim().replace(/^v+/, '');
       const rawHeaders = getGitHubHeaders({ Accept: 'application/vnd.github.raw+json' });
       const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
 
       let mdxResponse = await fetch(
-        `${REPO_API_URL}/contents/changelogs/${cleanVersion}.mdx${refParam}`,
+        `${REPO_API_URL}/contents/${RELEASE_NOTES_DIR}/${cleanVersion}.mdx${refParam}`,
         {
           headers: rawHeaders,
         },
@@ -45,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!mdxResponse.ok && mdxResponse.status === 404) {
         mdxResponse = await fetch(
-          `${REPO_API_URL}/contents/changelogs/${cleanVersion}.md${refParam}`,
+          `${REPO_API_URL}/contents/${RELEASE_NOTES_DIR}/${cleanVersion}.md${refParam}`,
           {
             headers: rawHeaders,
           },
@@ -101,21 +102,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({
           tag_name: release.tag_name,
           version,
-          released_at: release.published_at || null,
+          released_at: release.published_at ?? null,
           tags: [],
-          notes: release.body || '',
+          notes: release.body ?? '',
         });
       }
 
-      return res.status(404).json({ error: 'Changelog or release not found' });
+      return res.status(404).json({ error: 'Release notes or release not found' });
     }
 
     // -------------------------------------------------------------
-    // Route 2: List of all versions requested (GET /changelogs)
+    // Route 2: List of all versions requested (GET /release-notes)
     // -------------------------------------------------------------
     const headers = getGitHubHeaders({ Accept: 'application/vnd.github+json' });
     const refParam = `?ref=${encodeURIComponent(REPO_BRANCH)}`;
-    const apiUrl = `${REPO_API_URL}/contents/changelogs${refParam}`;
+    const apiUrl = `${REPO_API_URL}/contents/${RELEASE_NOTES_DIR}${refParam}`;
 
     const ghResponse = await fetch(apiUrl, { headers });
 
@@ -124,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!ghResponse.ok) {
-      return res.status(ghResponse.status).send('Error fetching changelogs list from GitHub');
+      return res.status(ghResponse.status).send('Error fetching release notes list from GitHub');
     }
 
     const items: GitHubContentItem[] = await ghResponse.json();

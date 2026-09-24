@@ -31,12 +31,20 @@
       "destination": "/api/latest?file=latest.json"
     },
     {
+      "source": "/release-notes/:version",
+      "destination": "/api/release-notes?version=:version"
+    },
+    {
+      "source": "/release-notes",
+      "destination": "/api/release-notes"
+    },
+    {
       "source": "/changelogs/:version",
-      "destination": "/api/changelogs?version=:version"
+      "destination": "/api/release-notes?version=:version"
     },
     {
       "source": "/changelogs",
-      "destination": "/api/changelogs"
+      "destination": "/api/release-notes"
     }
   ]
 }

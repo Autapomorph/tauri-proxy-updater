@@ -1,8 +1,8 @@
 # Tauri Updater Proxy
 
-A high-performance auto-updater and changelog proxy server for Tauri v2 applications, designed to securely distribute updates and release notes from private or public GitHub repositories.
+A high-performance auto-updater and release notes proxy server for Tauri v2 applications, designed to securely distribute updates and release notes from private or public GitHub repositories.
 
-It shields your `GITHUB_TOKEN` from end-users, streams installer downloads, handles multi-channel releases (`stable` and `prerelease`), and serves markdown/MDX changelogs.
+It shields your `GITHUB_TOKEN` from end-users, streams installer downloads, handles multi-channel releases (`stable` and `prerelease`), and serves markdown/MDX release notes.
 
 ---
 
@@ -14,8 +14,8 @@ It shields your `GITHUB_TOKEN` from end-users, streams installer downloads, hand
 - **Flexible Channel Selection:** Supports channel selection via HTTP header or query parameter, with well-defined priority.
 - **Binary Streaming:** Efficiently proxies binary downloads (`.exe`, `.zip`, `.sig`, `.dmg`, etc.) directly from GitHub release assets without memory bloat.
 - **Static Manifest Support:** Serves `latest.json`, `latest.stable.json`, and `latest.prerelease.json` manifests directly from the repository with automated fallbacks.
-- **Rich Changelog System:** Serves dedicated version release notes written in Markdown or MDX (`changelogs/<version>.mdx`), with full YAML frontmatter parsing (`title`, `date`, `tags`), falling back to GitHub release notes when needed.
-- **Branch Customization:** Configurable target repository branch via `REPO_BRANCH`.
+- **Rich Release Notes System:** Serves dedicated version release notes written in Markdown or MDX (`release-notes/<version>.mdx`), with full YAML frontmatter parsing (`title`, `date`, `tags`), falling back to GitHub release notes when needed.
+- **Branch & Directory Customization:** Configurable target repository branch (`REPO_BRANCH`) and release notes folder (`RELEASE_NOTES_DIR`).
 
 ---
 
@@ -68,10 +68,11 @@ Serves static release manifests directly from the repository (`latest.json`, `la
 
 ---
 
-### 4. Version Changelog (Rich Release Notes)
+### 4. Version Release Notes (Rich Markdown / MDX)
 
 ```http
-GET /changelogs/:version
+GET /release-notes/:version
+GET /changelogs/:version    (alias for backward compatibility)
 ```
 
 Fetches the release notes for a specific version.
@@ -79,9 +80,8 @@ Fetches the release notes for a specific version.
 - **Route Parameters:**
   - `:version` — Version string (e.g. `1.3.1`, `v1.3.1`, `1.4.0-beta.1`).
 - **Resolution Strategy:**
-  1. Searches for `changelogs/<version>.mdx` on `REPO_BRANCH`.
-  2. If not found, searches for `changelogs/<version>.md` on `REPO_BRANCH`.
-  3. If not found, falls back to the body of the corresponding GitHub release tag.
+  1. Searches for `<RELEASE_NOTES_DIR>/<version>.mdx` (or `.md`) on `REPO_BRANCH` (defaults to `release-notes/<version>.mdx`).
+  2. If not found, falls back to the body of the corresponding GitHub release tag.
 - **Response Example:**
   ```json
   {
@@ -94,13 +94,14 @@ Fetches the release notes for a specific version.
 
 ---
 
-### 5. Changelogs Index (List Versions)
+### 5. Release Notes Index (List Versions)
 
 ```http
-GET /changelogs
+GET /release-notes
+GET /changelogs    (alias for backward compatibility)
 ```
 
-Returns an array of all available versions that have changelog files in `changelogs/`.
+Returns an array of all available versions that have release notes files in `<RELEASE_NOTES_DIR>`.
 
 - **Channel Selection:** Pass `?channel=stable` or header `X-Update-Channel: stable` to filter out pre-release versions.
 - **Response Example:**
@@ -170,12 +171,13 @@ curl "https://your-proxy.vercel.app/update/windows-x86_64/1.3.1?channel=prerelea
 
 Configure these variables in your deployment environment (e.g. Vercel Project Settings):
 
-| Variable       | Required | Default | Description                                                                                       |
-| :------------- | :------: | :-----: | :------------------------------------------------------------------------------------------------ |
-| `GITHUB_TOKEN` | **Yes**  |    —    | GitHub Personal Access Token (Classic with `repo` or fine-grained with `contents:read`).          |
-| `GITHUB_OWNER` | **Yes**  |    —    | GitHub repository owner (username or organization).                                               |
-| `GITHUB_REPO`  | **Yes**  |    —    | GitHub repository name.                                                                           |
-| `REPO_BRANCH`  |    No    | `main`  | Target repository branch for fetching manifests (`latest*.json`) and changelogs (`changelogs/*`). |
+| Variable            | Required |     Default     | Description                                                                              |
+| :------------------ | :------: | :-------------: | :--------------------------------------------------------------------------------------- |
+| `GITHUB_TOKEN`      | **Yes**  |        —        | GitHub Personal Access Token (Classic with `repo` or fine-grained with `contents:read`). |
+| `GITHUB_OWNER`      | **Yes**  |        —        | GitHub repository owner (username or organization).                                      |
+| `GITHUB_REPO`       | **Yes**  |        —        | GitHub repository name.                                                                  |
+| `REPO_BRANCH`       |    No    |     `main`      | Target repository branch for fetching manifests (`latest*.json`) and release notes.      |
+| `RELEASE_NOTES_DIR` |    No    | `release-notes` | Target directory in repository where release notes (`.md` / `.mdx`) are located.         |
 
 ---
 
@@ -184,7 +186,7 @@ Configure these variables in your deployment environment (e.g. Vercel Project Se
 1. Create a GitHub repository (e.g. `tauri-proxy-updater`) and push this project.
 2. Log in to [Vercel](https://vercel.com/) and click **Add New -> Project**.
 3. Select your repository, leave **Framework Preset** as **Other**, and click **Deploy**.
-4. In the Vercel Dashboard, go to **Settings -> Environment Variables** and add `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, and optionally `REPO_BRANCH`.
+4. In the Vercel Dashboard, go to **Settings -> Environment Variables** and add `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, and optionally `REPO_BRANCH`, `RELEASE_NOTES_DIR`.
 5. Redeploy the latest deployment to apply the environment variables.
 
 ---
