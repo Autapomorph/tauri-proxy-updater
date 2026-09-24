@@ -72,10 +72,10 @@ export class GiteaProvider implements GitProvider {
     }
 
     return data.map(r => ({
-      tag_name: r.tag_name,
+      tagName: r.tag_name,
       name: r.name ?? r.tag_name,
       body: r.body ?? '',
-      published_at: r.published_at ?? null,
+      publishedAt: r.published_at ?? null,
       draft: r.draft ?? false,
       prerelease: r.prerelease ?? false,
       assets: (r.assets ?? []).map(a => ({
@@ -106,10 +106,10 @@ export class GiteaProvider implements GitProvider {
 
     const r = (await res.json()) as GiteaRelease;
     return {
-      tag_name: r.tag_name,
+      tagName: r.tag_name,
       name: r.name ?? r.tag_name,
       body: r.body ?? '',
-      published_at: r.published_at ?? null,
+      publishedAt: r.published_at ?? null,
       draft: r.draft ?? false,
       prerelease: r.prerelease ?? false,
       assets: (r.assets ?? []).map(a => ({

@@ -40,7 +40,7 @@ export function isStableVersion(version: string): boolean {
 export interface EligibleReleaseCandidate {
   draft?: boolean;
   prerelease?: boolean;
-  tag_name: string;
+  tagName: string;
 }
 
 export interface GetEligibleReleasesOptions {
@@ -56,7 +56,7 @@ export function getEligibleReleases<T extends EligibleReleaseCandidate>(
       return false;
     }
 
-    const releaseVer = r.tag_name.replace(/^v/, '').trim();
+    const releaseVer = r.tagName.replace(/^v/, '').trim();
     const parsed = semver.valid(releaseVer);
     if (!parsed) {
       return false;
@@ -72,5 +72,5 @@ export function getEligibleReleases<T extends EligibleReleaseCandidate>(
     return true;
   });
 
-  return eligible.sort((a, b) => compareSemver(a.tag_name, b.tag_name));
+  return eligible.sort((a, b) => compareSemver(a.tagName, b.tagName));
 }

@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const candidate = eligibleReleases[0];
-    const candidateVersion = candidate.tag_name.replace(/^v/, '').trim();
+    const candidateVersion = candidate.tagName.replace(/^v/, '').trim();
 
     // Check if update is required
     const parsedCurrent = semver.valid(cleanCurrentVersion);
@@ -139,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const tauriUpdateResponse: TauriUpdateResponse = {
       version: candidateVersion,
-      pub_date: candidate.published_at ?? '',
+      pub_date: candidate.publishedAt ?? '',
       notes: candidate.body,
       platforms: {
         [target]: {

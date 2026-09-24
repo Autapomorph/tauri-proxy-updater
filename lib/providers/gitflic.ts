@@ -109,10 +109,10 @@ export class GitFlicProvider implements GitProvider {
     return items.map(r => {
       const tagName = r.tag ?? r.tagName ?? '';
       return {
-        tag_name: tagName,
+        tagName,
         name: r.title ?? tagName,
         body: r.description ?? '',
-        published_at: r.releaseDate ?? null,
+        publishedAt: r.releaseDate ?? null,
         draft: false,
         prerelease: tagName.includes('-'),
         assets: (r.attachments ?? []).map(a => ({
@@ -146,10 +146,10 @@ export class GitFlicProvider implements GitProvider {
     const tagName = r.tag ?? r.tagName ?? cleanTag;
 
     return {
-      tag_name: tagName,
+      tagName,
       name: r.title ?? tagName,
       body: r.description ?? '',
-      published_at: r.releaseDate ?? null,
+      publishedAt: r.releaseDate ?? null,
       draft: false,
       prerelease: tagName.includes('-'),
       assets: (r.attachments ?? []).map(a => ({

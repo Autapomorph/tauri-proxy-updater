@@ -58,10 +58,10 @@ export class OneDevProvider implements GitProvider {
     }
 
     return tags.map(t => ({
-      tag_name: t.name,
+      tagName: t.name,
       name: t.name,
       body: t.message ?? '',
-      published_at: null,
+      publishedAt: null,
       draft: false,
       prerelease: t.name.includes('-'),
       assets: [],
@@ -89,10 +89,10 @@ export class OneDevProvider implements GitProvider {
 
     const t = (await res.json()) as OneDevTag;
     return {
-      tag_name: t.name,
+      tagName: t.name,
       name: t.name,
       body: t.message ?? '',
-      published_at: null,
+      publishedAt: null,
       draft: false,
       prerelease: t.name.includes('-'),
       assets: [],

@@ -93,7 +93,7 @@ Fetches the release notes for a specific version.
   ```json
   {
     "version": "1.3.1",
-    "released_at": "2026-09-21T18:23:25Z",
+    "releasedAt": "2026-09-21T18:23:25Z",
     "tags": ["feature", "fix"],
     "notes": "Full markdown content with frontmatter stripped"
   }

@@ -55,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({
           version: cleanVersion,
-          released_at: releasedAt,
+          releasedAt,
           tags: Array.isArray(meta.tags) ? meta.tags : [],
           notes: content,
         });
@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const release = await provider.getReleaseByTag(cleanVersion);
 
       if (release) {
-        const version = release.tag_name.replace(/^v/, '');
+        const version = release.tagName.replace(/^v/, '');
 
         res.setHeader('Vary', 'Origin');
         res.setHeader(
@@ -74,9 +74,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
 
         return res.status(200).json({
-          tag_name: release.tag_name,
+          tagName: release.tagName,
           version,
-          released_at: release.published_at ?? null,
+          releasedAt: release.publishedAt ?? null,
           tags: [],
           notes: release.body ?? '',
         });

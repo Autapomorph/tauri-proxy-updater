@@ -101,10 +101,10 @@ export class BitbucketProvider implements GitProvider {
       );
 
       return {
-        tag_name: tag.name,
+        tagName: tag.name,
         name: tag.name,
         body: tag.target?.message ?? '',
-        published_at: tag.target?.date ?? null,
+        publishedAt: tag.target?.date ?? null,
         draft: false,
         prerelease: tag.name.includes('-'),
         assets: releaseAssets,
@@ -129,10 +129,10 @@ export class BitbucketProvider implements GitProvider {
 
     const tagData = (await res.json()) as BitbucketTag;
     return {
-      tag_name: tagData.name,
+      tagName: tagData.name,
       name: tagData.name,
       body: tagData.target?.message ?? '',
-      published_at: tagData.target?.date ?? null,
+      publishedAt: tagData.target?.date ?? null,
       draft: false,
       prerelease: tagData.name.includes('-'),
       assets: [],

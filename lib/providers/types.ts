@@ -13,8 +13,8 @@ export interface UnifiedRelease {
   draft?: boolean;
   name?: string;
   prerelease?: boolean;
-  published_at: string | null;
-  tag_name: string;
+  publishedAt: string | null;
+  tagName: string;
 }
 
 export interface StreamAssetResult {

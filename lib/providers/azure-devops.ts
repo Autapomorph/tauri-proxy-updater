@@ -68,10 +68,10 @@ export class AzureDevOpsProvider implements GitProvider {
     return tags.map(t => {
       const tagName = t.name.replace(/^refs\/tags\//, '');
       return {
-        tag_name: tagName,
+        tagName,
         name: tagName,
         body: '',
-        published_at: null,
+        publishedAt: null,
         draft: false,
         prerelease: tagName.includes('-'),
         assets: [],
@@ -98,10 +98,10 @@ export class AzureDevOpsProvider implements GitProvider {
 
     const tagName = match.name.replace(/^refs\/tags\//, '');
     return {
-      tag_name: tagName,
+      tagName,
       name: tagName,
       body: '',
-      published_at: null,
+      publishedAt: null,
       draft: false,
       prerelease: tagName.includes('-'),
       assets: [],

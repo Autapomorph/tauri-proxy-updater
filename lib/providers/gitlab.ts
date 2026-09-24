@@ -72,10 +72,10 @@ export class GitLabProvider implements GitProvider {
     }
 
     return data.map(r => ({
-      tag_name: r.tag_name,
+      tagName: r.tag_name,
       name: r.name ?? r.tag_name,
       body: r.description ?? '',
-      published_at: r.released_at ?? null,
+      publishedAt: r.released_at ?? null,
       draft: false,
       prerelease: Boolean(r.upcoming_release),
       assets: (r.assets?.links ?? []).map(link => ({
@@ -109,10 +109,10 @@ export class GitLabProvider implements GitProvider {
 
     const r = (await res.json()) as GitLabRelease;
     return {
-      tag_name: r.tag_name,
+      tagName: r.tag_name,
       name: r.name ?? r.tag_name,
       body: r.description ?? '',
-      published_at: r.released_at ?? null,
+      publishedAt: r.released_at ?? null,
       draft: false,
       prerelease: Boolean(r.upcoming_release),
       assets: (r.assets?.links ?? []).map(link => ({
