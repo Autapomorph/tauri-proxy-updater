@@ -41,6 +41,9 @@ export const ASSET_EXTENSION = {
   EXE: '.exe',
   GZ: '.gz',
   MSI: '.msi',
+  MSI_ZIP: '.msi.zip',
+  NSIS_ZIP: '.nsis.zip',
+  RPM: '.rpm',
   SIG: '.sig',
   TAR_GZ: '.tar.gz',
   ZIP: '.zip',
@@ -80,9 +83,12 @@ export const LINUX_EXTENSIONS = [
   ASSET_EXTENSION.TAR_GZ,
   ASSET_EXTENSION.APP_IMAGE,
   ASSET_EXTENSION.DEB,
+  ASSET_EXTENSION.RPM,
 ] as const;
 
 export const WINDOWS_EXTENSIONS = [
+  ASSET_EXTENSION.NSIS_ZIP,
+  ASSET_EXTENSION.MSI_ZIP,
   ASSET_EXTENSION.EXE,
   ASSET_EXTENSION.MSI,
   ASSET_EXTENSION.ZIP,
@@ -90,9 +96,9 @@ export const WINDOWS_EXTENSIONS = [
 
 export const DARWIN_EXTENSIONS = [
   ASSET_EXTENSION.APP_TAR,
-  ASSET_EXTENSION.DMG,
   ASSET_EXTENSION.TAR_GZ,
   ASSET_EXTENSION.GZ,
+  ASSET_EXTENSION.DMG,
 ] as const;
 
 export const FALLBACK_EXTENSIONS = [
@@ -103,6 +109,57 @@ export const FALLBACK_EXTENSIONS = [
 
 function hasExtension(filename: string, extensions: readonly string[]): boolean {
   return extensions.some(ext => filename.endsWith(ext));
+}
+
+function pickBestAsset<T extends ReleaseAsset>(
+  candidates: T[],
+  allAssets: T[],
+  targetLower: string,
+  preferredExtensions: readonly string[],
+): T | undefined {
+  if (candidates.length === 0) {
+    return undefined;
+  }
+
+  const isTargetUniversal = targetLower.includes(ARCHITECTURE_KEYWORD.UNIVERSAL);
+
+  const getScore = (asset: T): number => {
+    const nameLower = asset.name.toLowerCase();
+    let score = 0;
+
+    // 1. Signature availability: In Tauri, auto-updater requires an accompanying signature (.sig)
+    const hasSig = allAssets.some(other => other.name === `${asset.name}${ASSET_EXTENSION.SIG}`);
+    if (hasSig) {
+      score += 1000;
+    }
+
+    // 2. Portable penalty: Portable archives/binaries are standalone distributions, not auto-updater targets
+    const isPortable = /(?:^|[-_.]|(?<=[a-z0-9]))portable(?:$|[-_.])/i.test(nameLower);
+    if (isPortable) {
+      score -= 500;
+    }
+
+    // 3. Extension preference based on preferred order in preferredExtensions
+    // Earlier items in preferredExtensions have higher precedence
+    const extIndex = preferredExtensions.findIndex(ext => nameLower.endsWith(ext));
+    if (extIndex !== -1) {
+      score += (preferredExtensions.length - extIndex) * 50;
+    }
+
+    // Windows setup executable bonus
+    if (nameLower.includes('-setup.exe') || nameLower.includes('_setup.exe')) {
+      score += 40;
+    }
+
+    // 4. Universal bonus for Darwin
+    if (isTargetUniversal && nameLower.includes(ARCHITECTURE_KEYWORD.UNIVERSAL)) {
+      score += 200;
+    }
+
+    return score;
+  };
+
+  return [...candidates].sort((a, b) => getScore(b) - getScore(a))[0];
 }
 
 export function findReleaseAssets<T extends ReleaseAsset>(
@@ -170,16 +227,20 @@ export function findReleaseAssets<T extends ReleaseAsset>(
     );
 
     const isTargetUniversal = targetLower.includes(ARCHITECTURE_KEYWORD.UNIVERSAL);
+    const macCandidates = macAssets.filter(
+      a =>
+        (isTargetUniversal
+          ? a.name.toLowerCase().includes(ARCHITECTURE_KEYWORD.UNIVERSAL)
+          : matchesArch(a.name)) || a.name.toLowerCase().includes(ARCHITECTURE_KEYWORD.UNIVERSAL),
+    );
 
     binaryAsset =
-      macAssets.find(a => {
-        if (isTargetUniversal) {
-          return a.name.toLowerCase().includes(ARCHITECTURE_KEYWORD.UNIVERSAL);
-        }
-        return matchesArch(a.name);
-      }) ??
-      macAssets.find(a => a.name.toLowerCase().includes(ARCHITECTURE_KEYWORD.UNIVERSAL)) ??
-      macAssets[0];
+      pickBestAsset(
+        macCandidates.length > 0 ? macCandidates : macAssets,
+        assets,
+        targetLower,
+        DARWIN_EXTENSIONS,
+      ) ?? macAssets[0];
   } else if (
     targetLower.includes(PLATFORM_KEYWORD.WINDOWS) ||
     (targetLower.includes(PLATFORM_KEYWORD.WIN) && !targetLower.includes(PLATFORM_KEYWORD.DARWIN))
@@ -187,20 +248,41 @@ export function findReleaseAssets<T extends ReleaseAsset>(
     const winAssets = assets.filter(
       a => hasExtension(a.name, WINDOWS_EXTENSIONS) && !a.name.endsWith(ASSET_EXTENSION.SIG),
     );
+    const winCandidates = winAssets.filter(a => matchesArch(a.name));
 
-    binaryAsset = winAssets.find(a => matchesArch(a.name)) ?? winAssets[0];
+    binaryAsset =
+      pickBestAsset(
+        winCandidates.length > 0 ? winCandidates : winAssets,
+        assets,
+        targetLower,
+        WINDOWS_EXTENSIONS,
+      ) ?? winAssets[0];
   } else if (targetLower.includes(PLATFORM_KEYWORD.LINUX)) {
     const linuxAssets = assets.filter(
       a => hasExtension(a.name, LINUX_EXTENSIONS) && !a.name.endsWith(ASSET_EXTENSION.SIG),
     );
+    const linuxCandidates = linuxAssets.filter(a => matchesArch(a.name));
 
-    binaryAsset = linuxAssets.find(a => matchesArch(a.name)) ?? linuxAssets[0];
+    binaryAsset =
+      pickBestAsset(
+        linuxCandidates.length > 0 ? linuxCandidates : linuxAssets,
+        assets,
+        targetLower,
+        LINUX_EXTENSIONS,
+      ) ?? linuxAssets[0];
   } else {
     const allCandidates = assets.filter(
       a => hasExtension(a.name, FALLBACK_EXTENSIONS) && !a.name.endsWith(ASSET_EXTENSION.SIG),
     );
+    const archCandidates = allCandidates.filter(a => matchesArch(a.name));
 
-    binaryAsset = allCandidates.find(a => matchesArch(a.name)) ?? allCandidates[0];
+    binaryAsset =
+      pickBestAsset(
+        archCandidates.length > 0 ? archCandidates : allCandidates,
+        assets,
+        targetLower,
+        FALLBACK_EXTENSIONS,
+      ) ?? allCandidates[0];
   }
 
   if (!binaryAsset) {

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import semver from 'semver';
 
 import { getProvider } from '../lib/providers/index.js';
+import type { UnifiedAsset } from '../lib/providers/types.js';
 import { getEligibleReleases } from '../lib/semver.js';
 import { type TauriUpdateResponse, findReleaseAssets } from '../lib/updater.js';
 
@@ -70,15 +71,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(204).end();
     }
 
-    const { binaryAsset, sigAsset } = findReleaseAssets(candidate.assets ?? [], target);
+    let binaryAsset: UnifiedAsset | null = null;
+    let signature = '';
+
+    // 1. Try resolving binary asset and signature from release manifest (e.g. latest.json)
+    const manifestFileName = channel !== DEFAULT_CHANNEL ? `latest.${channel}.json` : 'latest.json';
+    const manifestAsset =
+      candidate.assets?.find(a => a.name.toLowerCase() === manifestFileName.toLowerCase()) ??
+      candidate.assets?.find(a => a.name.toLowerCase() === 'latest.json');
+
+    if (manifestAsset) {
+      try {
+        const manifestRaw = await provider.getAssetSignature(manifestAsset);
+        if (manifestRaw) {
+          const manifest = JSON.parse(manifestRaw) as {
+            platforms?: Record<string, { signature?: string; url?: string }>;
+          };
+          const platformInfo = manifest?.platforms?.[target];
+          if (platformInfo?.url) {
+            const cleanUrl = platformInfo.url.split('?')[0].split('#')[0];
+            const filename = cleanUrl.split('/').filter(Boolean).pop();
+            if (filename) {
+              const matched = candidate.assets?.find(
+                a => a.name.toLowerCase() === filename.toLowerCase(),
+              );
+              if (matched) {
+                binaryAsset = matched;
+                signature = platformInfo.signature ?? '';
+              }
+            }
+          }
+        }
+      } catch {
+        // Fall back to heuristic discovery
+      }
+    }
+
+    // 2. Fall back to heuristic discovery of release assets
+    if (!binaryAsset) {
+      const matched = findReleaseAssets(candidate.assets ?? [], target);
+      binaryAsset = matched.binaryAsset;
+      if (matched.sigAsset) {
+        signature = await provider.getAssetSignature(matched.sigAsset);
+      }
+    }
 
     if (!binaryAsset) {
       return res.status(404).send(`Release asset not found for target platform '${target}'`);
     }
 
-    let signature = '';
-    if (sigAsset) {
-      signature = await provider.getAssetSignature(sigAsset);
+    if (!signature) {
+      const sigAsset = candidate.assets?.find(
+        a => a.name.toLowerCase() === `${binaryAsset.name.toLowerCase()}.sig`,
+      );
+      if (sigAsset) {
+        signature = await provider.getAssetSignature(sigAsset);
+      }
     }
 
     const protocolHeader = req.headers['x-forwarded-proto'];
