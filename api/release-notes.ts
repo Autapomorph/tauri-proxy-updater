@@ -1,14 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { RELEASE_NOTES_DIR, REPO_BRANCH } from '../lib/config/index.js';
+import { FALLBACK_LANGUAGE, RELEASE_NOTES_DIR, REPO_BRANCH } from '../lib/config/index.js';
 import { parseFrontmatter } from '../lib/frontmatter.js';
+import { extractVersionFromFileName, findBestReleaseNotesMatch } from '../lib/i18n.js';
 import { getProvider } from '../lib/providers/index.js';
 import { compareSemver, isStableVersion } from '../lib/semver.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Update-Channel');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Update-Channel, X-App-Language');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -22,6 +23,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const tagParam = Array.isArray(req.query.tag) ? req.query.tag[0] : req.query.tag;
   const requestedVersion = versionParam ?? tagParam;
 
+  const queryLang = Array.isArray(req.query.lang) ? req.query.lang[0] : req.query.lang;
+  const headerLang = Array.isArray(req.headers['x-app-language'])
+    ? req.headers['x-app-language'][0]
+    : req.headers['x-app-language'];
+  const requestedLocale = queryLang ?? headerLang;
+
   try {
     const provider = getProvider();
 
@@ -31,17 +38,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (requestedVersion) {
       const cleanVersion = requestedVersion.trim().replace(/^v+/, '');
 
-      let rawText = await provider.getRawFile(
-        `${RELEASE_NOTES_DIR}/${cleanVersion}.mdx`,
-        REPO_BRANCH,
-      );
+      let rawText: string | null = null;
+      let matchedLocale: string | null = null;
 
-      rawText ??= await provider.getRawFile(`${RELEASE_NOTES_DIR}/${cleanVersion}.md`, REPO_BRANCH);
+      // 1. Fetch file list from provider
+      const files = await provider.listDirectoryFiles(RELEASE_NOTES_DIR, REPO_BRANCH);
+
+      if (files && files.length > 0) {
+        const match = findBestReleaseNotesMatch(
+          files,
+          cleanVersion,
+          requestedLocale,
+          FALLBACK_LANGUAGE,
+        );
+
+        if (match) {
+          rawText = await provider.getRawFile(
+            `${RELEASE_NOTES_DIR}/${match.matchedFile}`,
+            REPO_BRANCH,
+          );
+          matchedLocale = match.locale;
+        }
+      }
 
       if (rawText) {
         const { content, meta } = parseFrontmatter(rawText);
 
-        res.setHeader('Vary', 'Origin');
+        res.setHeader('Vary', 'Origin, X-Update-Channel, X-App-Language');
         res.setHeader(
           'Cache-Control',
           'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
@@ -54,10 +77,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           null;
 
         return res.status(200).json({
-          version: cleanVersion,
+          locale: matchedLocale,
+          notes: content,
           releasedAt,
           tags: Array.isArray(meta.tags) ? meta.tags : [],
-          notes: content,
+          version: cleanVersion,
         });
       }
 
@@ -67,18 +91,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (release) {
         const version = release.tagName.replace(/^v/, '');
 
-        res.setHeader('Vary', 'Origin');
+        res.setHeader('Vary', 'Origin, X-Update-Channel, X-App-Language');
         res.setHeader(
           'Cache-Control',
           'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
         );
 
         return res.status(200).json({
-          tagName: release.tagName,
-          version,
-          releasedAt: release.publishedAt ?? null,
-          tags: [],
+          locale: null,
           notes: release.body ?? '',
+          releasedAt: release.publishedAt ?? null,
+          tagName: release.tagName,
+          tags: [],
+          version,
         });
       }
 
@@ -94,10 +119,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(502).send('Error fetching release notes list from provider');
     }
 
-    let versions = files
-      .filter(name => name.endsWith('.mdx') || name.endsWith('.md'))
-      .map(name => name.replace(/\.mdx?$/, ''))
-      .sort((a, b) => compareSemver(a, b));
+    const versionSet = new Set<string>();
+    for (const name of files) {
+      const ver = extractVersionFromFileName(name);
+      if (ver) {
+        versionSet.add(ver);
+      }
+    }
+
+    let versions = Array.from(versionSet).sort((a, b) => compareSemver(a, b));
 
     const queryChannel = Array.isArray(req.query.channel)
       ? req.query.channel[0]
@@ -112,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       versions = versions.filter(isStableVersion);
     }
 
-    res.setHeader('Vary', 'Origin, X-Update-Channel');
+    res.setHeader('Vary', 'Origin, X-Update-Channel, X-App-Language');
     res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=120, stale-while-revalidate=600');
 
     return res.status(200).json({ versions });

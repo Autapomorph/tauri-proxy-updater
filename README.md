@@ -17,8 +17,9 @@ It shields your access tokens from end-users, streams installer downloads, handl
 - **Flexible Channel Selection:** Supports channel selection via HTTP header or query parameter, with well-defined priority.
 - **Binary Streaming:** Efficiently proxies binary downloads (`.exe`, `.zip`, `.sig`, `.dmg`, etc.) directly from release assets without memory bloat.
 - **Static Manifest Support:** Serves `latest.json`, `latest.stable.json`, and `latest.prerelease.json` manifests from release assets (sorted strictly by SemVer 2.0) or directly from the repository with automated fallbacks.
-- **Rich Release Notes System:** Serves dedicated version release notes written in Markdown or MDX (`release-notes/<version>.mdx`), with full YAML frontmatter parsing (`title`, `date`, `tags`), falling back to provider release notes when needed.
-- **Full Customization:** Configurable manifest resolution strategy (`MANIFEST_SOURCE`), target repository branch (`REPO_BRANCH`), manifests folder (`MANIFESTS_DIR`), and release notes folder (`RELEASE_NOTES_DIR`).
+- **Rich Release Notes System:** Serves dedicated version release notes written in Markdown or MDX (`release-notes/<version>.mdx`), with full YAML frontmatter parsing (`title`, `date`, `tags`), multi-language BCP 47 localization support, and automatic fallbacks to provider release notes when needed.
+- **Multi-Language Support (i18n):** Serves localized release notes via `?lang=` query parameter or `X-App-Language` header with BCP 47 tags (e.g. `1.3.1.pt-BR.mdx`, `1.3.1.pt.mdx`) and configurable fallback chains (`FALLBACK_LANGUAGE`).
+- **Full Customization:** Configurable manifest resolution strategy (`MANIFEST_SOURCE`), target repository branch (`REPO_BRANCH`), manifests folder (`MANIFESTS_DIR`), release notes folder (`RELEASE_NOTES_DIR`), and fallback language (`FALLBACK_LANGUAGE`).
 
 ---
 
@@ -82,17 +83,33 @@ GET /release-notes/:version
 GET /changelogs/:version    (alias for backward compatibility)
 ```
 
-Fetches the release notes for a specific version.
+Fetches the release notes for a specific version, with full multi-language (i18n) localization support.
 
 - **Route Parameters:**
   - `:version` — Version string (e.g. `1.3.1`, `v1.3.1`, `1.4.0-beta.1`).
-- **Resolution Strategy:**
-  1. Searches for `<RELEASE_NOTES_DIR>/<version>.mdx` (or `.md`) on `REPO_BRANCH` (defaults to `release-notes/<version>.mdx`).
-  2. If not found, falls back to the body of the corresponding provider release/tag.
+- **Language / Locale Selection:**
+  - `?lang=` query parameter (highest priority, e.g. `?lang=pt-BR`, `?lang=ru`, `?lang=en`).
+  - `X-App-Language` HTTP header (e.g. `X-App-Language: pt-BR`).
+  - If neither is provided, falls back to the configured `FALLBACK_LANGUAGE` (or `en`).
+- **File Naming Convention:**
+  Release notes are placed in `<RELEASE_NOTES_DIR>` (defaults to `release-notes/`) using BCP 47 language tags:
+  - `<version>.<locale>.mdx` or `.md` (e.g. `1.3.1.pt-BR.mdx` for Brazilian Portuguese)
+  - `<version>.<lang>.mdx` or `.md` (e.g. `1.3.1.pt.mdx` for general Portuguese)
+  - `<version>.mdx` or `.md` (e.g. `1.3.1.mdx` for base release notes without language tag)
+- **Resolution & Fallback Strategy:**
+  1. If client requests `pt-BR`:
+     - Checks `1.3.1.pt-BR.mdx` / `.md` (exact regional match, case-insensitive)
+     - Falls back to `1.3.1.pt.mdx` / `.md` (base language match)
+     - Falls back to `FALLBACK_LANGUAGE` (e.g. if set to `en-US`: tries `en-US` then `en`)
+     - Falls back to default constant `en`
+     - Falls back to base file `1.3.1.mdx` / `1.3.1.md`
+  2. If no localized file is found in repository, falls back to the body of the corresponding provider release/tag (`release.body`).
+  3. Optimized for performance: executes **exactly 1 network request** to list repository files and matches candidates in-memory.
 - **Response Example:**
   ```json
   {
     "version": "1.3.1",
+    "locale": "pt-BR",
     "releasedAt": "2026-09-21T18:23:25Z",
     "tags": ["feature", "fix"],
     "notes": "Full markdown content with frontmatter stripped"
@@ -179,6 +196,7 @@ Configure these variables in your deployment environment (e.g. Vercel Project Se
 | `MANIFEST_SOURCE`   |    No    |     `auto`      | Manifest resolution strategy: `auto` (release assets first, fallback to repo), `releases` (only release assets), or `repo` (only repository files).                                  |
 | `MANIFESTS_DIR`     |    No    |   `""` (root)   | Target directory in repository where release manifests (`latest*.json`) are located (used when served from repository).                                                              |
 | `RELEASE_NOTES_DIR` |    No    | `release-notes` | Target directory in repository where release notes (`.md` / `.mdx`) are located.                                                                                                     |
+| `FALLBACK_LANGUAGE` |    No    |      `en`       | Fallback language / locale when requested translation is unavailable (e.g. `en`, `en-US`, `ru`).                                                                                     |
 
 ---
 
