@@ -1,4 +1,8 @@
 import { DEFAULT_FALLBACK_LANGUAGE } from './config/i18n.js';
+import {
+  type ReleaseNotesDirStructure,
+  DEFAULT_RELEASE_NOTES_DIR_STRUCTURE,
+} from './config/release-notes.js';
 
 export interface SanitizedLocale {
   language: string;
@@ -77,47 +81,75 @@ export function findBestReleaseNotesMatch(
   version: string,
   requestedLocale?: string | null,
   fallbackLanguage?: string,
+  structure: ReleaseNotesDirStructure = DEFAULT_RELEASE_NOTES_DIR_STRUCTURE,
 ): ReleaseNotesMatch | null {
   const cleanVersion = version.trim().replace(/^v+/, '');
 
   const fileMap = new Map<string, string>();
   for (const file of files) {
-    fileMap.set(file.toLowerCase(), file);
+    const normalized = file.replace(/\\/g, '/').replace(/^\/+/, '');
+    fileMap.set(normalized.toLowerCase(), normalized);
   }
 
   const priorityChain = getLocalePriorityChain(requestedLocale, fallbackLanguage);
 
-  for (const tag of priorityChain) {
-    const mdxCandidate = `${cleanVersion}.${tag}.mdx`.toLowerCase();
-    const matchedMdx = fileMap.get(mdxCandidate);
-    if (matchedMdx) {
-      return { locale: tag, matchedFile: matchedMdx };
-    }
+  // 1. Nested folder search phase: <locale>/<version>.mdx (or .md)
+  if (structure === 'auto' || structure === 'nested') {
+    for (const tag of priorityChain) {
+      const nestedMdxCandidate = `${tag}/${cleanVersion}.mdx`.toLowerCase();
+      const matchedMdx = fileMap.get(nestedMdxCandidate);
+      if (matchedMdx) {
+        return { locale: tag, matchedFile: matchedMdx };
+      }
 
-    const mdCandidate = `${cleanVersion}.${tag}.md`.toLowerCase();
-    const matchedMd = fileMap.get(mdCandidate);
-    if (matchedMd) {
-      return { locale: tag, matchedFile: matchedMd };
+      const nestedMdCandidate = `${tag}/${cleanVersion}.md`.toLowerCase();
+      const matchedMd = fileMap.get(nestedMdCandidate);
+      if (matchedMd) {
+        return { locale: tag, matchedFile: matchedMd };
+      }
     }
   }
 
-  const baseMdxCandidate = `${cleanVersion}.mdx`.toLowerCase();
-  const matchedBaseMdx = fileMap.get(baseMdxCandidate);
-  if (matchedBaseMdx) {
-    return { locale: null, matchedFile: matchedBaseMdx };
-  }
+  // 2. Flat file search phase: <version>.<locale>.mdx (or .md) and base <version>.mdx (or .md)
+  if (structure === 'auto' || structure === 'flat') {
+    for (const tag of priorityChain) {
+      const mdxCandidate = `${cleanVersion}.${tag}.mdx`.toLowerCase();
+      const matchedMdx = fileMap.get(mdxCandidate);
+      if (matchedMdx) {
+        return { locale: tag, matchedFile: matchedMdx };
+      }
 
-  const baseMdCandidate = `${cleanVersion}.md`.toLowerCase();
-  const matchedBaseMd = fileMap.get(baseMdCandidate);
-  if (matchedBaseMd) {
-    return { locale: null, matchedFile: matchedBaseMd };
+      const mdCandidate = `${cleanVersion}.${tag}.md`.toLowerCase();
+      const matchedMd = fileMap.get(mdCandidate);
+      if (matchedMd) {
+        return { locale: tag, matchedFile: matchedMd };
+      }
+    }
+
+    const baseMdxCandidate = `${cleanVersion}.mdx`.toLowerCase();
+    const matchedBaseMdx = fileMap.get(baseMdxCandidate);
+    if (matchedBaseMdx) {
+      return { locale: null, matchedFile: matchedBaseMdx };
+    }
+
+    const baseMdCandidate = `${cleanVersion}.md`.toLowerCase();
+    const matchedBaseMd = fileMap.get(baseMdCandidate);
+    if (matchedBaseMd) {
+      return { locale: null, matchedFile: matchedBaseMd };
+    }
   }
 
   return null;
 }
 
-export function extractVersionFromFileName(fileName: string): string | null {
-  if (!fileName.endsWith('.mdx') && !fileName.endsWith('.md')) {
+export function extractVersionFromFileName(filePath: string): string | null {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  if (!normalizedPath.endsWith('.mdx') && !normalizedPath.endsWith('.md')) {
+    return null;
+  }
+
+  const fileName = normalizedPath.split('/').pop();
+  if (!fileName) {
     return null;
   }
 

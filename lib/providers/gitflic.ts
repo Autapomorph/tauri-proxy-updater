@@ -216,9 +216,35 @@ export class GitFlicProvider implements GitProvider {
 
     const items = extractFileList(await res.json());
 
-    return items
+    const files: string[] = items
       .filter(item => !item.type || item.type.toLowerCase() === 'file')
       .map(item => item.name);
+
+    const directories = items.filter(item => item.type?.toLowerCase() === 'directory');
+
+    if (directories.length > 0) {
+      const subResults = await Promise.all(
+        directories.map(async dir => {
+          const subDirPath = `${cleanDir}/${dir.name}`;
+          const subRes = await fetch(
+            `${this.projectUrl}/tree?branch=${encodeURIComponent(ref)}&path=${encodeURIComponent(subDirPath)}`,
+            { headers },
+          );
+          if (subRes.ok) {
+            const subItems = extractFileList(await subRes.json());
+            return subItems
+              .filter(subItem => !subItem.type || subItem.type.toLowerCase() === 'file')
+              .map(subItem => `${dir.name}/${subItem.name}`);
+          }
+          return [];
+        }),
+      );
+      for (const subFiles of subResults) {
+        files.push(...subFiles);
+      }
+    }
+
+    return files;
   }
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {

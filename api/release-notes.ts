@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import { FALLBACK_LANGUAGE, RELEASE_NOTES_DIR, REPO_BRANCH } from '../lib/config/index.js';
+import {
+  FALLBACK_LANGUAGE,
+  RELEASE_NOTES_DIR,
+  RELEASE_NOTES_DIR_STRUCTURE,
+  REPO_BRANCH,
+} from '../lib/config/index.js';
 import { parseFrontmatter } from '../lib/frontmatter.js';
 import { extractVersionFromFileName, findBestReleaseNotesMatch } from '../lib/i18n.js';
 import { getProvider } from '../lib/providers/index.js';
@@ -50,6 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           cleanVersion,
           requestedLocale,
           FALLBACK_LANGUAGE,
+          RELEASE_NOTES_DIR_STRUCTURE,
         );
 
         if (match) {

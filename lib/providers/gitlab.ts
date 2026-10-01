@@ -33,6 +33,7 @@ interface GitLabRelease {
 
 interface GitLabTreeItem {
   name: string;
+  path?: string;
   type: string;
 }
 
@@ -142,10 +143,12 @@ export class GitLabProvider implements GitProvider {
 
   public async listDirectoryFiles(dirPath: string, ref: string): Promise<string[] | null> {
     const headers = this.getHeaders();
-    const pathParam = encodeURIComponent(dirPath);
+    const cleanDir = dirPath.replace(/^\/+|\/+$/g, '');
+    const prefix = cleanDir ? `${cleanDir}/` : '';
+    const pathParam = encodeURIComponent(cleanDir);
     const refParam = encodeURIComponent(ref);
     const res = await fetch(
-      `${this.baseUrl}/projects/${this.projectId}/repository/tree?path=${pathParam}&ref=${refParam}&per_page=100`,
+      `${this.baseUrl}/projects/${this.projectId}/repository/tree?path=${pathParam}&ref=${refParam}&recursive=true&per_page=100`,
       { headers },
     );
 
@@ -162,7 +165,14 @@ export class GitLabProvider implements GitProvider {
       return [];
     }
 
-    return items.filter(item => item.type === 'blob').map(item => item.name);
+    return items
+      .filter(item => item.type === 'blob')
+      .map(item => {
+        if (item.path && prefix && item.path.startsWith(prefix)) {
+          return item.path.slice(prefix.length);
+        }
+        return item.path ?? item.name;
+      });
   }
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {

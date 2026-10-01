@@ -20,6 +20,7 @@ interface OneDevTag {
 
 interface OneDevTreeItem {
   name: string;
+  path?: string;
   type: string;
 }
 
@@ -115,7 +116,8 @@ export class OneDevProvider implements GitProvider {
   public async listDirectoryFiles(dirPath: string, ref: string): Promise<string[] | null> {
     const headers = this.getHeaders({ Accept: 'application/json' });
     const cleanDir = dirPath.replace(/^\/+|\/+$/g, '');
-    const url = `${this.baseUrl}/projects/${this.projectPath}/blob-tree?revision=${encodeURIComponent(ref)}&path=${encodeURIComponent(cleanDir)}`;
+    const prefix = cleanDir ? `${cleanDir}/` : '';
+    const url = `${this.baseUrl}/projects/${this.projectPath}/blob-tree?revision=${encodeURIComponent(ref)}&path=${encodeURIComponent(cleanDir)}&recursive=true`;
 
     const res = await fetch(url, { headers });
     if (res.status === 404) {
@@ -131,7 +133,14 @@ export class OneDevProvider implements GitProvider {
       return [];
     }
 
-    return items.filter(item => item.type === 'FILE').map(item => item.name);
+    return items
+      .filter(item => item.type === 'FILE')
+      .map(item => {
+        if (item.path && prefix && item.path.startsWith(prefix)) {
+          return item.path.slice(prefix.length);
+        }
+        return item.path ?? item.name;
+      });
   }
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {

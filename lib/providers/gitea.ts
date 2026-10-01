@@ -137,7 +137,32 @@ export class GiteaProvider implements GitProvider {
 
   public async listDirectoryFiles(dirPath: string, ref: string): Promise<string[] | null> {
     const headers = this.getHeaders({ Accept: 'application/json' });
-    const cleanDir = dirPath.replace(/^\/+/, '');
+    const cleanDir = dirPath.replace(/^\/+|\/+$/g, '');
+    const prefix = cleanDir ? `${cleanDir}/` : '';
+
+    try {
+      const treeRes = await fetch(
+        `${this.repoUrl}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+        { headers },
+      );
+
+      if (treeRes.ok) {
+        const treeData = (await treeRes.json()) as {
+          tree?: { path?: string; type?: string }[];
+        };
+        if (Array.isArray(treeData.tree)) {
+          return treeData.tree
+            .filter(
+              item =>
+                item.type === 'blob' && item.path && (!prefix || item.path.startsWith(prefix)),
+            )
+            .map(item => (prefix ? item.path!.slice(prefix.length) : item.path!));
+        }
+      }
+    } catch {
+      // Fall back to contents API
+    }
+
     const refParam = `?ref=${encodeURIComponent(ref)}`;
     const res = await fetch(`${this.repoUrl}/contents/${cleanDir}${refParam}`, { headers });
 

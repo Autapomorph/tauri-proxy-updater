@@ -91,20 +91,24 @@ Fetches the release notes for a specific version, with full multi-language (i18n
   - `?lang=` query parameter (highest priority, e.g. `?lang=pt-BR`, `?lang=ru`, `?lang=en`).
   - `X-App-Language` HTTP header (e.g. `X-App-Language: pt-BR`).
   - If neither is provided, falls back to the configured `FALLBACK_LANGUAGE` (or `en`).
-- **File Naming Convention:**
-  Release notes are placed in `<RELEASE_NOTES_DIR>` (defaults to `release-notes/`) using BCP 47 language tags:
-  - `<version>.<locale>.mdx` or `.md` (e.g. `1.3.1.pt-BR.mdx` for Brazilian Portuguese)
-  - `<version>.<lang>.mdx` or `.md` (e.g. `1.3.1.pt.mdx` for general Portuguese)
-  - `<version>.mdx` or `.md` (e.g. `1.3.1.mdx` for base release notes without language tag)
+- **File Structure & Layouts (`RELEASE_NOTES_DIR_STRUCTURE`):**
+  Release notes are placed in `<RELEASE_NOTES_DIR>` (defaults to `release-notes/`) using BCP 47 language tags across two supported directory structures:
+  - **Nested subfolders (`nested`):** `<RELEASE_NOTES_DIR>/<locale>/<version>.mdx` or `.md`
+    - e.g. `release-notes/pt-BR/1.3.1.mdx`, `release-notes/pt/1.3.1.mdx`, `release-notes/en/1.3.1.mdx`
+  - **Flat files (`flat`):** `<RELEASE_NOTES_DIR>/<version>.<locale>.mdx` or `.md` and base `<version>.mdx`
+    - e.g. `release-notes/1.3.1.pt-BR.mdx`, `release-notes/1.3.1.pt.mdx`, `release-notes/1.3.1.mdx`
 - **Resolution & Fallback Strategy:**
-  1. If client requests `pt-BR`:
-     - Checks `1.3.1.pt-BR.mdx` / `.md` (exact regional match, case-insensitive)
-     - Falls back to `1.3.1.pt.mdx` / `.md` (base language match)
-     - Falls back to `FALLBACK_LANGUAGE` (e.g. if set to `en-US`: tries `en-US` then `en`)
-     - Falls back to default constant `en`
-     - Falls back to base file `1.3.1.mdx` / `1.3.1.md`
-  2. If no localized file is found in repository, falls back to the body of the corresponding provider release/tag (`release.body`).
-  3. Optimized for performance: executes **exactly 1 network request** to list repository files and matches candidates in-memory.
+  1. Configurable via `RELEASE_NOTES_DIR_STRUCTURE`:
+     - **`auto` (default):** Searches nested subfolders first across the locale fallback chain. If no localized file is found in nested folders, falls back to flat files across the same fallback chain, and finally the base `<version>.mdx` file.
+     - **`nested`:** Searches strictly inside nested subfolders (`<locale>/<version>.mdx`).
+     - **`flat`:** Searches strictly among flat files (`<version>.<locale>.mdx` and `<version>.mdx`).
+  2. Locale fallback chain example (when client requests `pt-BR` and `FALLBACK_LANGUAGE=en-US`):
+     - `pt-BR` (client regional locale)
+     - `pt` (client base language)
+     - `en-US` (configured fallback locale)
+     - `en` (configured/default base fallback)
+  3. If no matching file is found in the repository, falls back to the body of the corresponding provider release/tag (`release.body`).
+  4. Optimized for performance: executes **exactly 1 network request** to list repository files and matches candidates in-memory.
 - **Response Example:**
   ```json
   {
@@ -185,18 +189,19 @@ const betaUpdate = await check({
 
 Configure these variables in your deployment environment (e.g. Vercel Project Settings):
 
-| Variable            | Required |     Default     | Description                                                                                                                                                                          |
-| :------------------ | :------: | :-------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GIT_PROVIDER`      |    No    |    `github`     | Git provider: `github`, `gitlab`, `gitea`, `gitverse`, `gitflic`, `bitbucket`, `azure_devops`, or `onedev`.                                                                          |
-| `GIT_TOKEN`         | **Yes**  |        —        | Personal Access Token with repository read access.                                                                                                                                   |
-| `REPO_OWNER`        | **Yes**  |        —        | Repository owner / group / organization. For Azure DevOps: `org` or `org/project`.                                                                                                   |
-| `REPO_NAME`         | **Yes**  |        —        | Repository / project name.                                                                                                                                                           |
-| `GIT_API_URL`       |    No    |        —        | Custom API Base URL for self-hosted instances (e.g. `https://gitlab.mycompany.com/api/v4`, `https://github.corp.com/api/v3`, `https://codeberg.org/api/v1`). Auto-detected if empty. |
-| `REPO_BRANCH`       |    No    |     `main`      | Target repository branch for fetching manifests (`latest*.json`) and release notes.                                                                                                  |
-| `MANIFEST_SOURCE`   |    No    |     `auto`      | Manifest resolution strategy: `auto` (release assets first, fallback to repo), `releases` (only release assets), or `repo` (only repository files).                                  |
-| `MANIFESTS_DIR`     |    No    |   `""` (root)   | Target directory in repository where release manifests (`latest*.json`) are located (used when served from repository).                                                              |
-| `RELEASE_NOTES_DIR` |    No    | `release-notes` | Target directory in repository where release notes (`.md` / `.mdx`) are located.                                                                                                     |
-| `FALLBACK_LANGUAGE` |    No    |      `en`       | Fallback language / locale when requested translation is unavailable (e.g. `en`, `en-US`, `ru`).                                                                                     |
+| Variable                      | Required |     Default     | Description                                                                                                                                                                          |
+| :---------------------------- | :------: | :-------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_PROVIDER`                |    No    |    `github`     | Git provider: `github`, `gitlab`, `gitea`, `gitverse`, `gitflic`, `bitbucket`, `azure_devops`, or `onedev`.                                                                          |
+| `GIT_TOKEN`                   | **Yes**  |        —        | Personal Access Token with repository read access.                                                                                                                                   |
+| `REPO_OWNER`                  | **Yes**  |        —        | Repository owner / group / organization. For Azure DevOps: `org` or `org/project`.                                                                                                   |
+| `REPO_NAME`                   | **Yes**  |        —        | Repository / project name.                                                                                                                                                           |
+| `GIT_API_URL`                 |    No    |        —        | Custom API Base URL for self-hosted instances (e.g. `https://gitlab.mycompany.com/api/v4`, `https://github.corp.com/api/v3`, `https://codeberg.org/api/v1`). Auto-detected if empty. |
+| `REPO_BRANCH`                 |    No    |     `main`      | Target repository branch for fetching manifests (`latest*.json`) and release notes.                                                                                                  |
+| `MANIFEST_SOURCE`             |    No    |     `auto`      | Manifest resolution strategy: `auto` (release assets first, fallback to repo), `releases` (only release assets), or `repo` (only repository files).                                  |
+| `MANIFESTS_DIR`               |    No    |   `""` (root)   | Target directory in repository where release manifests (`latest*.json`) are located (used when served from repository).                                                              |
+| `RELEASE_NOTES_DIR`           |    No    | `release-notes` | Target directory in repository where release notes (`.md` / `.mdx`) are located.                                                                                                     |
+| `RELEASE_NOTES_DIR_STRUCTURE` |    No    |     `auto`      | Directory layout for release notes: `auto` (nested first, fallback to flat), `nested`, or `flat`.                                                                                    |
+| `FALLBACK_LANGUAGE`           |    No    |      `en`       | Fallback language / locale when requested translation is unavailable (e.g. `en`, `en-US`, `ru`).                                                                                     |
 
 ---
 

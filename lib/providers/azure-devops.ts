@@ -124,7 +124,8 @@ export class AzureDevOpsProvider implements GitProvider {
   public async listDirectoryFiles(dirPath: string, ref: string): Promise<string[] | null> {
     const headers = this.getHeaders({ Accept: 'application/json' });
     const cleanDir = dirPath.startsWith('/') ? dirPath : `/${dirPath}`;
-    const url = `${this.repoUrl}/items?scopePath=${encodeURIComponent(cleanDir)}&recursionLevel=oneLevel&versionDescriptor.version=${encodeURIComponent(ref)}&api-version=7.1`;
+    const prefix = cleanDir.endsWith('/') ? cleanDir : `${cleanDir}/`;
+    const url = `${this.repoUrl}/items?scopePath=${encodeURIComponent(cleanDir)}&recursionLevel=full&versionDescriptor.version=${encodeURIComponent(ref)}&api-version=7.1`;
 
     const res = await fetch(url, { headers });
     if (res.status === 404) {
@@ -140,7 +141,7 @@ export class AzureDevOpsProvider implements GitProvider {
 
     return items
       .filter(item => !item.isFolder && item.path !== cleanDir)
-      .map(item => item.path.split('/').pop() ?? item.path);
+      .map(item => (item.path.startsWith(prefix) ? item.path.slice(prefix.length) : item.path));
   }
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {

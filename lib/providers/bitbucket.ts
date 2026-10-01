@@ -157,8 +157,9 @@ export class BitbucketProvider implements GitProvider {
   public async listDirectoryFiles(dirPath: string, ref: string): Promise<string[] | null> {
     const headers = this.getHeaders({ Accept: 'application/json' });
     const cleanDir = dirPath.replace(/^\/+|\/+$/g, '');
+    const prefix = cleanDir ? `${cleanDir}/` : '';
     const res = await fetch(
-      `${this.repoUrl}/src/${encodeURIComponent(ref)}/${cleanDir}/?pagelen=100`,
+      `${this.repoUrl}/src/${encodeURIComponent(ref)}/${cleanDir}/?pagelen=100&max_depth=10`,
       { headers },
     );
 
@@ -175,7 +176,9 @@ export class BitbucketProvider implements GitProvider {
 
     return items
       .filter(item => item.type === 'commit_file')
-      .map(item => item.path.split('/').pop() ?? item.path);
+      .map(item =>
+        prefix && item.path.startsWith(prefix) ? item.path.slice(prefix.length) : item.path,
+      );
   }
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {
