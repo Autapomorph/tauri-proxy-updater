@@ -24,7 +24,9 @@ export default defineConfig([
   },
   plugins.stylistic,
   plugins.importX,
+  plugins.node,
   ...configs.base.recommended,
+  ...configs.node.recommended,
 
   plugins.typescriptEslint,
   ...configs.base.typescript,
@@ -53,6 +55,7 @@ export default defineConfig([
       ],
     },
     rules: {
+      curly: ['error', 'all'],
       'class-methods-use-this': 'off',
       'no-restricted-syntax': 'off',
       'no-promise-executor-return': 'off',
@@ -89,8 +92,6 @@ export default defineConfig([
     files: plugins.typescriptEslint.files,
     rules: {
       '@typescript-eslint/promise-function-async': 'off',
-      '@typescript-eslint/consistent-type-imports': 'off',
-      '@typescript-eslint/consistent-type-exports': 'off',
       '@typescript-eslint/no-misused-spread': 'off',
       '@typescript-eslint/no-invalid-void-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
@@ -101,7 +102,6 @@ export default defineConfig([
       '@typescript-eslint/no-redundant-type-constituents': 'off',
       '@typescript-eslint/method-signature-style': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-
       '@typescript-eslint/no-use-before-define': [
         'error',
         {
