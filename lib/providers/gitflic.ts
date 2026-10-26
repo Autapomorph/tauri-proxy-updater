@@ -45,16 +45,21 @@ function extractReleaseList(json: unknown): GitFlicRelease[] {
   if (Array.isArray(json)) {
     return json as GitFlicRelease[];
   }
+
   if (json && typeof json === 'object') {
     const { content } = json as { content?: GitFlicRelease[] };
+
     if (Array.isArray(content)) {
       return content;
     }
+
     const embedded = Reflect.get(json, '_embedded') as GitFlicEmbeddedReleases | undefined;
+
     if (Array.isArray(embedded?.releaseList)) {
       return embedded.releaseList;
     }
   }
+
   return [];
 }
 
@@ -62,16 +67,21 @@ function extractFileList(data: unknown): GitFlicTreeItem[] {
   if (Array.isArray(data)) {
     return data as GitFlicTreeItem[];
   }
+
   if (data && typeof data === 'object') {
     const { content } = data as { content?: GitFlicTreeItem[] };
+
     if (Array.isArray(content)) {
       return content;
     }
+
     const embedded = Reflect.get(data, '_embedded') as GitFlicEmbeddedFiles | undefined;
+
     if (Array.isArray(embedded?.fileList)) {
       return embedded.fileList;
     }
   }
+
   return [];
 }
 
@@ -108,6 +118,7 @@ export class GitFlicProvider implements GitProvider {
 
     return items.map(r => {
       const tagName = r.tag ?? r.tagName ?? '';
+
       return {
         tagName,
         name: r.title ?? tagName,
@@ -132,6 +143,7 @@ export class GitFlicProvider implements GitProvider {
     let res = await fetch(`${this.projectUrl}/release/${encodeURIComponent(cleanTag)}`, {
       headers,
     });
+
     if (!res.ok && res.status === 404) {
       res = await fetch(`${this.projectUrl}/release/${encodeURIComponent(`v${cleanTag}`)}`, {
         headers,
@@ -230,15 +242,19 @@ export class GitFlicProvider implements GitProvider {
             `${this.projectUrl}/tree?branch=${encodeURIComponent(ref)}&path=${encodeURIComponent(subDirPath)}`,
             { headers },
           );
+
           if (subRes.ok) {
             const subItems = extractFileList(await subRes.json());
+
             return subItems
               .filter(subItem => !subItem.type || subItem.type.toLowerCase() === 'file')
               .map(subItem => `${dir.name}/${subItem.name}`);
           }
+
           return [];
         }),
       );
+
       for (const subFiles of subResults) {
         files.push(...subFiles);
       }
@@ -249,6 +265,7 @@ export class GitFlicProvider implements GitProvider {
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {
     const targetUrl = asset.downloadUrl ?? asset.url;
+
     if (!targetUrl) {
       return '';
     }
@@ -276,6 +293,7 @@ export class GitFlicProvider implements GitProvider {
     });
 
     const redirectUrl = res.headers.get('location');
+
     if ((res.status === 302 || res.status === 301) && redirectUrl) {
       return { redirectUrl };
     }

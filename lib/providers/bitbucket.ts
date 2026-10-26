@@ -67,6 +67,7 @@ export class BitbucketProvider implements GitProvider {
     const tagsRes = await fetch(`${this.repoUrl}/refs/tags?sort=-target.date&pagelen=100`, {
       headers,
     });
+
     if (!tagsRes.ok) {
       throw new Error(`Bitbucket API error (tags): ${tagsRes.status} ${tagsRes.statusText}`);
     }
@@ -76,8 +77,10 @@ export class BitbucketProvider implements GitProvider {
 
     // Fetch downloads
     let downloads: BitbucketDownload[] = [];
+
     try {
       const dlRes = await fetch(`${this.repoUrl}/downloads?pagelen=100`, { headers });
+
       if (dlRes.ok) {
         const dlData = (await dlRes.json()) as { values?: BitbucketDownload[] };
         downloads = dlData.values ?? [];
@@ -117,6 +120,7 @@ export class BitbucketProvider implements GitProvider {
     const headers = this.getHeaders({ Accept: 'application/json' });
 
     let res = await fetch(`${this.repoUrl}/refs/tags/${encodeURIComponent(cleanTag)}`, { headers });
+
     if (!res.ok && res.status === 404) {
       res = await fetch(`${this.repoUrl}/refs/tags/${encodeURIComponent(`v${cleanTag}`)}`, {
         headers,
@@ -128,6 +132,7 @@ export class BitbucketProvider implements GitProvider {
     }
 
     const tagData = (await res.json()) as BitbucketTag;
+
     return {
       tagName: tagData.name,
       name: tagData.name,
@@ -183,6 +188,7 @@ export class BitbucketProvider implements GitProvider {
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {
     const targetUrl = asset.downloadUrl ?? asset.url;
+
     if (!targetUrl) {
       return '';
     }
@@ -210,6 +216,7 @@ export class BitbucketProvider implements GitProvider {
     });
 
     const redirectUrl = res.headers.get('location');
+
     if ((res.status === 302 || res.status === 301) && redirectUrl) {
       return { redirectUrl };
     }

@@ -129,12 +129,14 @@ function pickBestAsset<T extends ReleaseAsset>(
 
     // 1. Signature availability: In Tauri, auto-updater requires an accompanying signature (.sig)
     const hasSig = allAssets.some(other => other.name === `${asset.name}${ASSET_EXTENSION.SIG}`);
+
     if (hasSig) {
       score += 1000;
     }
 
     // 2. Portable penalty: Portable archives/binaries are standalone distributions, not auto-updater targets
     const isPortable = /(?:^|[-_.]|(?<=[a-z0-9]))portable(?:$|[-_.])/i.test(nameLower);
+
     if (isPortable) {
       score -= 500;
     }
@@ -142,6 +144,7 @@ function pickBestAsset<T extends ReleaseAsset>(
     // 3. Extension preference based on preferred order in preferredExtensions
     // Earlier items in preferredExtensions have higher precedence
     const extIndex = preferredExtensions.findIndex(ext => nameLower.endsWith(ext));
+
     if (extIndex !== -1) {
       score += (preferredExtensions.length - extIndex) * 50;
     }

@@ -63,6 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (MANIFEST_SOURCE !== 'repo') {
       try {
         const releases = await provider.getReleases();
+
         if (Array.isArray(releases) && releases.length > 0) {
           const eligibleReleases = getEligibleReleases(releases, { wantPrerelease });
 
@@ -121,9 +122,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data: unknown = JSON.parse(content);
     res.setHeader('Vary', 'Origin, X-Update-Channel');
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+
     return res.status(200).json(data);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
+
     return res.status(500).send(message);
   }
 }

@@ -54,6 +54,7 @@ export class OneDevProvider implements GitProvider {
     }
 
     const tags = (await res.json()) as OneDevTag[];
+
     if (!Array.isArray(tags)) {
       return [];
     }
@@ -77,6 +78,7 @@ export class OneDevProvider implements GitProvider {
       `${this.baseUrl}/projects/${this.projectPath}/tags/${encodeURIComponent(cleanTag)}`,
       { headers },
     );
+
     if (!res.ok && res.status === 404) {
       res = await fetch(
         `${this.baseUrl}/projects/${this.projectPath}/tags/${encodeURIComponent(`v${cleanTag}`)}`,
@@ -89,6 +91,7 @@ export class OneDevProvider implements GitProvider {
     }
 
     const t = (await res.json()) as OneDevTag;
+
     return {
       tagName: t.name,
       name: t.name,
@@ -106,6 +109,7 @@ export class OneDevProvider implements GitProvider {
     const url = `${this.baseUrl}/projects/${this.projectPath}/blob?revision=${encodeURIComponent(ref)}&path=${encodeURIComponent(cleanPath)}`;
 
     const res = await fetch(url, { headers });
+
     if (!res.ok) {
       return null;
     }
@@ -120,6 +124,7 @@ export class OneDevProvider implements GitProvider {
     const url = `${this.baseUrl}/projects/${this.projectPath}/blob-tree?revision=${encodeURIComponent(ref)}&path=${encodeURIComponent(cleanDir)}&recursive=true`;
 
     const res = await fetch(url, { headers });
+
     if (res.status === 404) {
       return [];
     }
@@ -129,6 +134,7 @@ export class OneDevProvider implements GitProvider {
     }
 
     const items = (await res.json()) as OneDevTreeItem[];
+
     if (!Array.isArray(items)) {
       return [];
     }
@@ -139,12 +145,14 @@ export class OneDevProvider implements GitProvider {
         if (item.path && prefix && item.path.startsWith(prefix)) {
           return item.path.slice(prefix.length);
         }
+
         return item.path ?? item.name;
       });
   }
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {
     const targetUrl = asset.downloadUrl ?? asset.url;
+
     if (!targetUrl) {
       return '';
     }
@@ -172,6 +180,7 @@ export class OneDevProvider implements GitProvider {
     });
 
     const redirectUrl = res.headers.get('location');
+
     if ((res.status === 302 || res.status === 301) && redirectUrl) {
       return { redirectUrl };
     }

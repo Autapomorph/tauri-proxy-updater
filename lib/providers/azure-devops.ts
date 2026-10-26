@@ -32,14 +32,18 @@ export class AzureDevOpsProvider implements GitProvider {
   private get orgAndProject(): { org: string; project: string } {
     if (REPO_OWNER.includes('/')) {
       const parts = REPO_OWNER.split('/');
+
       return { org: parts[0], project: parts[1] };
     }
+
     const project = REPO_NAME;
+
     return { org: REPO_OWNER, project };
   }
 
   private get repoUrl(): string {
     const { org, project } = this.orgAndProject;
+
     return `${this.baseUrl}/${org}/${project}/_apis/git/repositories/${REPO_NAME}`;
   }
 
@@ -47,6 +51,7 @@ export class AzureDevOpsProvider implements GitProvider {
     validateProviderEnv();
 
     const basicAuth = Buffer.from(`:${GIT_TOKEN}`).toString('base64');
+
     return {
       'User-Agent': 'Tauri-Updater-Proxy',
       Authorization: `Basic ${basicAuth}`,
@@ -67,6 +72,7 @@ export class AzureDevOpsProvider implements GitProvider {
 
     return tags.map(t => {
       const tagName = t.name.replace(/^refs\/tags\//, '');
+
       return {
         tagName,
         name: tagName,
@@ -86,17 +92,20 @@ export class AzureDevOpsProvider implements GitProvider {
     const res = await fetch(`${this.repoUrl}/refs?filter=tags/${cleanTag}&api-version=7.1`, {
       headers,
     });
+
     if (!res.ok) {
       return null;
     }
 
     const data = (await res.json()) as { value?: AzureTagRef[] };
     const match = data.value?.[0];
+
     if (!match) {
       return null;
     }
 
     const tagName = match.name.replace(/^refs\/tags\//, '');
+
     return {
       tagName,
       name: tagName,
@@ -114,6 +123,7 @@ export class AzureDevOpsProvider implements GitProvider {
     const url = `${this.repoUrl}/items?path=${encodeURIComponent(cleanPath)}&versionDescriptor.version=${encodeURIComponent(ref)}&$format=text&api-version=7.1`;
 
     const res = await fetch(url, { headers });
+
     if (!res.ok) {
       return null;
     }
@@ -128,6 +138,7 @@ export class AzureDevOpsProvider implements GitProvider {
     const url = `${this.repoUrl}/items?scopePath=${encodeURIComponent(cleanDir)}&recursionLevel=full&versionDescriptor.version=${encodeURIComponent(ref)}&api-version=7.1`;
 
     const res = await fetch(url, { headers });
+
     if (res.status === 404) {
       return [];
     }
@@ -146,6 +157,7 @@ export class AzureDevOpsProvider implements GitProvider {
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {
     const targetUrl = asset.downloadUrl ?? asset.url;
+
     if (!targetUrl) {
       return '';
     }
@@ -173,6 +185,7 @@ export class AzureDevOpsProvider implements GitProvider {
     });
 
     const redirectUrl = res.headers.get('location');
+
     if ((res.status === 302 || res.status === 301) && redirectUrl) {
       return { redirectUrl };
     }

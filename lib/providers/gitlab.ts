@@ -68,6 +68,7 @@ export class GitLabProvider implements GitProvider {
     }
 
     const data = (await res.json()) as GitLabRelease[];
+
     if (!Array.isArray(data)) {
       return [];
     }
@@ -109,6 +110,7 @@ export class GitLabProvider implements GitProvider {
     }
 
     const r = (await res.json()) as GitLabRelease;
+
     return {
       tagName: r.tag_name,
       name: r.name ?? r.tag_name,
@@ -161,6 +163,7 @@ export class GitLabProvider implements GitProvider {
     }
 
     const items = (await res.json()) as GitLabTreeItem[];
+
     if (!Array.isArray(items)) {
       return [];
     }
@@ -171,12 +174,14 @@ export class GitLabProvider implements GitProvider {
         if (item.path && prefix && item.path.startsWith(prefix)) {
           return item.path.slice(prefix.length);
         }
+
         return item.path ?? item.name;
       });
   }
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {
     const targetUrl = asset.downloadUrl ?? asset.url;
+
     if (!targetUrl) {
       return '';
     }
@@ -194,8 +199,10 @@ export class GitLabProvider implements GitProvider {
 
   public async streamAsset(assetId: string): Promise<StreamAssetResult> {
     let targetUrl: string;
+
     try {
       targetUrl = Buffer.from(assetId, 'base64url').toString('utf8');
+
       if (!targetUrl.startsWith('http')) {
         throw new Error('Invalid decoded URL');
       }
@@ -209,6 +216,7 @@ export class GitLabProvider implements GitProvider {
     });
 
     const redirectUrl = res.headers.get('location');
+
     if ((res.status === 302 || res.status === 301) && redirectUrl) {
       return { redirectUrl };
     }

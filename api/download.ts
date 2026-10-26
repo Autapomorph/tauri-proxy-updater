@@ -23,6 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (result.redirectUrl) {
       res.setHeader('Location', result.redirectUrl);
       res.setHeader('Cache-Control', 'public, max-age=300');
+
       return res.status(302).end();
     }
 
@@ -46,12 +47,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const nodeStream = Readable.fromWeb(result.stream as WebReadableStream);
+
       return nodeStream.pipe(res);
     }
 
     return res.status(500).send('Failed to stream asset from provider');
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
+
     return res.status(500).send(message);
   }
 }

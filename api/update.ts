@@ -50,6 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (eligibleReleases.length === 0) {
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+
       return res.status(204).end();
     }
 
@@ -68,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!shouldUpdate) {
       res.setHeader('Vary', 'Origin, X-Update-Channel');
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+
       return res.status(204).end();
     }
 
@@ -83,18 +85,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (manifestAsset) {
       try {
         const manifestRaw = await provider.getAssetSignature(manifestAsset);
+
         if (manifestRaw) {
           const manifest = JSON.parse(manifestRaw) as {
             platforms?: Record<string, { signature?: string; url?: string }>;
           };
           const platformInfo = manifest?.platforms?.[target];
+
           if (platformInfo?.url) {
             const cleanUrl = platformInfo.url.split('?')[0].split('#')[0];
             const filename = cleanUrl.split('/').filter(Boolean).pop();
+
             if (filename) {
               const matched = candidate.assets?.find(
                 a => a.name.toLowerCase() === filename.toLowerCase(),
               );
+
               if (matched) {
                 binaryAsset = matched;
                 signature = platformInfo.signature ?? '';
@@ -111,6 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!binaryAsset) {
       const matched = findReleaseAssets(candidate.assets ?? [], target);
       binaryAsset = matched.binaryAsset;
+
       if (matched.sigAsset) {
         signature = await provider.getAssetSignature(matched.sigAsset);
       }
@@ -124,6 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const sigAsset = candidate.assets?.find(
         a => a.name.toLowerCase() === `${binaryAsset.name.toLowerCase()}.sig`,
       );
+
       if (sigAsset) {
         signature = await provider.getAssetSignature(sigAsset);
       }
@@ -151,9 +159,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.setHeader('Vary', 'Origin, X-Update-Channel');
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+
     return res.status(200).json(tauriUpdateResponse);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
+
     return res.status(500).send(message);
   }
 }

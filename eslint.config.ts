@@ -74,6 +74,15 @@ export default defineConfig([
         },
       ],
 
+      '@stylistic/padding-line-between-statements': [
+        'error',
+        { blankLine: 'always', prev: 'directive', next: '*' },
+        { blankLine: 'any', prev: 'directive', next: 'directive' },
+        { blankLine: 'always', prev: '*', next: 'block-like' },
+        { blankLine: 'always', prev: 'block-like', next: '*' },
+        { blankLine: 'always', prev: '*', next: 'return' },
+      ],
+
       'import-x/order': 'off',
       'import-x/extensions': 'off',
       'import-x/no-unresolved': 'error',

@@ -122,8 +122,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const versionSet = new Set<string>();
+
     for (const name of files) {
       const ver = extractVersionFromFileName(name);
+
       if (ver) {
         versionSet.add(ver);
       }
@@ -140,6 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Query parameter takes precedence over HTTP header
     const channel = queryChannel ?? headerChannel;
+
     if (channel?.toLowerCase() === 'stable') {
       versions = versions.filter(isStableVersion);
     }
@@ -150,6 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ versions });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
+
     return res.status(500).send(message);
   }
 }

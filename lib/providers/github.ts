@@ -66,6 +66,7 @@ export class GitHubProvider implements GitProvider {
     }
 
     const data = (await res.json()) as RawGitHubRelease[];
+
     if (!Array.isArray(data)) {
       return [];
     }
@@ -90,6 +91,7 @@ export class GitHubProvider implements GitProvider {
     const headers = this.getHeaders({ Accept: 'application/vnd.github+json' });
 
     let res = await fetch(`${this.repoUrl}/releases/tags/${cleanTag}`, { headers });
+
     if (!res.ok && res.status === 404) {
       res = await fetch(`${this.repoUrl}/releases/tags/v${cleanTag}`, { headers });
     }
@@ -99,6 +101,7 @@ export class GitHubProvider implements GitProvider {
     }
 
     const r = (await res.json()) as RawGitHubRelease;
+
     return {
       tagName: r.tag_name,
       name: r.name ?? r.tag_name,
@@ -141,6 +144,7 @@ export class GitHubProvider implements GitProvider {
         const treeData = (await treeRes.json()) as {
           tree?: { path?: string; type?: string }[];
         };
+
         if (Array.isArray(treeData.tree)) {
           return treeData.tree
             .filter(
@@ -166,6 +170,7 @@ export class GitHubProvider implements GitProvider {
     }
 
     const items = (await res.json()) as RawGitHubContentItem[];
+
     if (!Array.isArray(items)) {
       return [];
     }
@@ -197,6 +202,7 @@ export class GitHubProvider implements GitProvider {
     });
 
     const redirectUrl = res.headers.get('location');
+
     if ((res.status === 302 || res.status === 301) && redirectUrl) {
       return { redirectUrl };
     }

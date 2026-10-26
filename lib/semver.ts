@@ -58,12 +58,14 @@ export function getEligibleReleases<T extends EligibleReleaseCandidate>(
 
     const releaseVer = r.tagName.replace(/^v/, '').trim();
     const parsed = semver.valid(releaseVer);
+
     if (!parsed) {
       return false;
     }
 
     if (!options.wantPrerelease) {
       const isPre = Boolean(r.prerelease) || !isStableVersion(releaseVer);
+
       if (isPre) {
         return false;
       }

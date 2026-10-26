@@ -67,6 +67,7 @@ export class GiteaProvider implements GitProvider {
     }
 
     const data = (await res.json()) as GiteaRelease[];
+
     if (!Array.isArray(data)) {
       return [];
     }
@@ -94,6 +95,7 @@ export class GiteaProvider implements GitProvider {
     let res = await fetch(`${this.repoUrl}/releases/tags/${encodeURIComponent(cleanTag)}`, {
       headers,
     });
+
     if (!res.ok && res.status === 404) {
       res = await fetch(`${this.repoUrl}/releases/tags/${encodeURIComponent(`v${cleanTag}`)}`, {
         headers,
@@ -105,6 +107,7 @@ export class GiteaProvider implements GitProvider {
     }
 
     const r = (await res.json()) as GiteaRelease;
+
     return {
       tagName: r.tag_name,
       name: r.name ?? r.tag_name,
@@ -150,6 +153,7 @@ export class GiteaProvider implements GitProvider {
         const treeData = (await treeRes.json()) as {
           tree?: { path?: string; type?: string }[];
         };
+
         if (Array.isArray(treeData.tree)) {
           return treeData.tree
             .filter(
@@ -175,6 +179,7 @@ export class GiteaProvider implements GitProvider {
     }
 
     const items = (await res.json()) as GiteaContentItem[];
+
     if (!Array.isArray(items)) {
       return [];
     }
@@ -184,6 +189,7 @@ export class GiteaProvider implements GitProvider {
 
   public async getAssetSignature(asset: UnifiedAsset): Promise<string> {
     const targetUrl = asset.downloadUrl ?? asset.url;
+
     if (!targetUrl) {
       return '';
     }
@@ -211,6 +217,7 @@ export class GiteaProvider implements GitProvider {
     });
 
     const redirectUrl = res.headers.get('location');
+
     if ((res.status === 302 || res.status === 301) && redirectUrl) {
       return { redirectUrl };
     }
